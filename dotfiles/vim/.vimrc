@@ -1,91 +1,76 @@
 """ Timmseh's Incredible VIMRC """
+" Plugins: git clone https://github.com/<repo> ~/.vim/pack/plugins/start/<dir>
+"          vim -u NONE -c 'helptags ~/.vim/pack/plugins/start/<dir>/doc' -c q
+"   nerdtree        preservim/nerdtree                obsession   tpope/vim-obsession
+"   airline         vim-airline/vim-airline           fugitive    tpope/vim-fugitive
+"   airline-themes  vim-airline/vim-airline-themes    gitgutter   airblade/vim-gitgutter
+"   ctrlp           ctrlpvim/ctrlp.vim
 
-"" List of Used Plugins and the commands to clone them and populate their helptags
-" git clone https://github.com/preservim/nerdtree.git ~/.vim/pack/plugins/start/nerdtree
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/nerdtree/doc" -c q
-" git clone https://github.com/tpope/vim-obsession.git  ~/.vim/pack/plugins/start/obsession
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/obsession/doc" -c q
-" git clone https://github.com/vim-airline/vim-airline.git  ~/.vim/pack/plugins/start/airline
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/airline/doc" -c q
-" git clone https://github.com/vim-airline/vim-airline-themes.git  ~/.vim/pack/plugins/start/airline-themes
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/airline-themes/doc" -c q
-" git clone https://github.com/ctrlpvim/ctrlp.vim.git  ~/.vim/pack/plugins/start/ctrlp
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/ctrlp/doc" -c q
-" git clone https://github.com/tpope/vim-fugitive.git  ~/.vim/pack/plugins/start/fugitive
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/fugitive/doc" -c q
-" git clone https://github.com/airblade/vim-gitgutter.git  ~/.vim/pack/plugins/start/gitgutter
-" vim -u NONE -c "helptags ~/.vim/pack/plugins/start/gitgutter/doc" -c q
-
-"" A couple of VIM things
-let mapleader = '.'
 set nocompatible
-set hidden
-set wildmode=list:longest
-set wildmenu
-set clipboard=unnamedplus
-"set clipboard=
-vnoremap <Leader>y "+y
-nnoremap <Leader>p "+p
-set belloff=all
-" Sessions should restore workspace state, not override global vimrc settings.
-set sessionoptions-=options
-set sessionoptions+=localoptions
+let mapleader = '.'
 
-"" Editor Configuration
-set number
-set smarttab
-set shiftwidth=4
-set tabstop=4
-set expandtab
-set softtabstop=4
-set nowrap
-set autoindent
-set copyindent
-set ruler
-set mouse=a
-set mousemodel=extend
-set showcmd
-set backspace=indent,eol,start
-set splitright
-set splitbelow
-set nofoldenable
+"" Options
+set hidden belloff=all mouse=a mousemodel=extend clipboard=unnamedplus
+set number ruler showcmd showmode nowrap nofoldenable splitright splitbelow
+set expandtab smarttab tabstop=4 softtabstop=4 shiftwidth=4 autoindent copyindent backspace=indent,eol,start
+set incsearch hlsearch showmatch ignorecase smartcase wildmenu wildmode=list:longest
+set history=1000 undolevels=1000
+set sessionoptions-=options sessionoptions+=localoptions   " sessions restore the workspace, not vimrc settings
+if !empty($VIM_MANPAGER) | set nonumber norelativenumber noshowmode | endif
+
+"" Appearance (custom highlights are reapplied whenever a colorscheme loads)
+function! s:Highlights() abort
+  hi User1 ctermfg=214 ctermbg=236 guifg=#eea040 guibg=#333333
+  hi User2 ctermfg=160 ctermbg=236 guifg=#dd3333 guibg=#333333
+  hi User3 ctermfg=201 ctermbg=236 guifg=#ff66ff guibg=#333333
+  hi User4 ctermfg=148 ctermbg=236 guifg=#a0ee40 guibg=#333333
+  hi User5 ctermfg=226 ctermbg=236 guifg=#eeee40 guibg=#333333
+  hi DiffAdd    cterm=bold ctermfg=NONE ctermbg=22 gui=bold guifg=NONE    guibg=#005f00
+  hi DiffDelete cterm=bold ctermfg=NONE ctermbg=52 gui=bold guifg=NONE    guibg=#5f0000
+  hi DiffChange cterm=bold ctermfg=NONE ctermbg=23 gui=bold guifg=NONE    guibg=#005f5f
+  hi DiffText   cterm=bold ctermfg=13   ctermbg=23 gui=bold guifg=#ff00ff guibg=#005f5f
+endfunction
+augroup CustomHighlights
+  autocmd!
+  autocmd ColorScheme * call s:Highlights()
+augroup END
 syntax on
 colorscheme industry
+if has('gui_running') | set guioptions-=m guifont=Monospace\ 15 | endif
 
-"" Search functionality modifications
-set incsearch
-set hlsearch
-set showmatch
-set showmode
-set ignorecase
-set smartcase
-noremap <silent> <Space> :silent noh<Bar>echo<CR>
-cnoreabbrev ev :e ~/.vimrc
-cnoreabbrev ea :e ~/.aliases
+" Fallback statusline (Airline replaces it):
+"   buffer │ fileformat │ filetype │ full path │ modified ══ line / total │ virtual column │ char code
+set laststatus=2
+let &statusline = '%1* %n %*%5*%{&ff}%*%3*%y%*%4* %<%F%*%2*%m%*%1*%=%5l%*%2*/%L%*%1*%4v %*%2*0x%04B %*'
 
-"" Maps colon to semi-colon and switches 'j' and 'k' for navigation purposes
+" :FS <size> (or :fs) sets the GUI font size and keeps the face; :size shows the font.
+function! SetFontSize(size)
+  let l:pat = &guifont =~# ':h\d\+$' ? ':h\zs\d\+$' : ' \zs\d\+$'
+  if &guifont =~# l:pat
+    let &guifont = substitute(&guifont, l:pat, a:size, '')
+  else
+    echoerr 'Could not determine font size from guifont: ' . &guifont
+  endif
+endfunction
+command! -nargs=1 FS call SetFontSize(<args>)
+
+"" Editing: ; and : swap, j/k swap (j = up), jj leaves insert mode, p/P swap, - / = undo/redo
 noremap ; :
 noremap : ;
 noremap j k
 noremap k j
-
-"" Maps 'jj' to Escape for exiting text in Insert mode
 inoremap jj <Esc>
+noremap p P
+noremap P p
+nnoremap - u
+nnoremap = <C-r>
+noremap <silent> <Space> :silent noh<Bar>echo<CR>
+vnoremap <Leader>y "+y
+nnoremap <Leader>p "+p
+vnoremap // y/\V<C-r>=escape(@", '/\')<CR><CR>
 
-"" Working with buffers (based on mapleader set above, in my case '.')
-nnoremap <Leader>b :buffers<CR>:buffer<Space>
-nnoremap <Leader>f :bnext<CR>
-nnoremap <Leader>a :bprev<CR>
-nnoremap <Leader>q :bfirst<CR>
-nnoremap <Leader>z :blast<CR>
-nnoremap <Leader>r :b#<CR>
-nnoremap <Leader>va :vertical ball<CR>
-nnoremap <Leader>v :vertical sbuffer<Space>
-nnoremap <Leader>sa :ball<CR>
-nnoremap <Leader>s :sbuffer<Space>
-cnoremap bd :bprevious <bar> bdelete #
-
-"" Additional navigation changes
+"" Movement: J/K file top/bottom, H/L line start/end, Alt+j/k sentence, Alt+h/l word,
+""           T/G/B window top/middle/bottom, M middle of the line
 noremap K G
 noremap J gg
 noremap L $
@@ -94,19 +79,13 @@ noremap <Esc>k )
 noremap <Esc>j (
 noremap <Esc>l w
 noremap <Esc>h b
-
-"" Bindings for moving the cursor within a VIM window without shifting context (T for top of window, B for bottom of window, G for middle of window)
 noremap T H
 noremap G M
 noremap B L
-
-"" Move cursor to the middle of the current line (horizontally)
 noremap M :call cursor(0, virtcol('$')/2)<CR>
 
-"" Maps multiple VIM windows controls to CTRL+direction using:
-" h=left, j=up, k=down, l=right
-
-" Moving cursor to windows:
+"" Windows: Ctrl+h/j/k/l move (j = up), Ctrl+c close, Ctrl+r previous, Ctrl+[ / Ctrl+] top / bottom,
+""          Ctrl+\ or .wr equalize, ., / .. narrower / wider, sf / vf open file under cursor in a split
 noremap <C-h> <C-w>h
 noremap <C-j> <C-w>k
 noremap <C-k> <C-w>j
@@ -115,896 +94,372 @@ noremap <C-c> <C-w>c
 noremap <C-r> <C-w>p
 noremap <C-[> <C-w>t
 noremap <C-]> <C-w>b
-
-" Changes if Vim is opening man
-if !empty($VIM_MANPAGER)
-    set nonumber
-    set norelativenumber
-    set noshowmode
-endif
-
-" Resize splits
+noremap <C-\> <C-w>=
 noremap <Leader>, <C-w><
 noremap <Leader>. <C-w>>
-
-" Set all splits equal again
-noremap <C-\> <C-w>=
-
-" Split file under cursor into either horizontal or vertical split
 noremap sf <C-w>f
-noremap vf <C-w>f \| <C-w>L
-
-"" Changes default print behavior to printing before the current character
-noremap p P
-noremap P p
-
-"" Maps '//' to search whatever text is highlighted in visual mode
-vnoremap // y/\V<C-r>"<CR>
-
-"" Increase default history and undo levels
-set history=1000
-set undolevels=1000
-
-"" Add simple status line showing mode, filename, position (Note: This is likely unnecessary now that I'm using Airline)
-set laststatus=2
-
-set statusline=%f\ \|\ CursorLoc:{%l,%c\ %p%%}
-
-" Statusline setup
-set statusline=
-set statusline +=%1*\ %n\ %*            "buffer number
-set statusline +=%5*%{&ff}%*            "file format
-set statusline +=%3*%y%*                "file type
-set statusline +=%4*\ %<%F%*            "full path
-set statusline +=%2*%m%*                "modified flag
-set statusline +=%1*%=%5l%*             "current line
-set statusline +=%2*/%L%*               "total lines
-set statusline +=%1*%4v\ %*             "virtual column number
-set statusline +=%2*0x%04B\ %*          "character under cursor
-
-" Statusline Colors (cterm)
-hi User1 ctermfg=214 ctermbg=236
-hi User2 ctermfg=160 ctermbg=236
-hi User3 ctermfg=201 ctermbg=236
-hi User4 ctermfg=148 ctermbg=236
-hi User5 ctermfg=226 ctermbg=236
-
-
-"" VIM Aliases
-" Show name of current file in bottom bar temporarily
-cnoreabbrev name :echo expand('%:p') " Type ':name' in VIM command line list file name
-" Copy current filename
-cnoreabbrev cf :let @+=expand("%:p")
-cnoreabbrev ws w !sudo tee %
-cnoreabbrev so :setlocal syntax=off 
-
-function! s:EqualizeSplits() abort
-  wincmd =
-endfunction
-command! WindowResize call s:EqualizeSplits()
-
-" Map equalizing size of all open buffers (NERDTree excluded)
+noremap vf <C-w>f<C-w>L
+command! WindowResize wincmd =
 noremap <Leader>wr :WindowResize<CR>
 
-" Modifications to quitting files to handle NERDTree smoothly
-cnoreabbrev a :qa
-cnoreabbrev aa :qa!
-cnoreabbrev wa :w<CR>:qa
+"" Buffers
+nnoremap <Leader>b :buffers<CR>:buffer<Space>
+nnoremap <Leader>f :bnext<CR>
+nnoremap <Leader>a :bprev<CR>
+nnoremap <Leader>q :bfirst<CR>
+nnoremap <Leader>z :blast<CR>
+nnoremap <Leader>r :b#<CR>
+nnoremap <Leader>v :vertical sbuffer<Space>
+nnoremap <Leader>va :vertical ball<CR>
+nnoremap <Leader>s :sbuffer<Space>
+nnoremap <Leader>sa :ball<CR>
 
-" Extra mappings for undo/redo
-nnoremap - u
-nnoremap = <C-r>
-
-"" GVIM Settings
-if has("gui_running")
-    set guioptions-=m
-    " set guifont=Monospace\ 12.5
-    set guifont=Monospace\ 15
-
-    " Statusline Colors
-    hi User1 guifg=#eea040 guibg=#333333
-    hi User2 guifg=#dd3333 guibg=#333333
-    hi User3 guifg=#ff66ff guibg=#333333
-    hi User4 guifg=#a0ee40 guibg=#333333
-    hi User5 guifg=#eeee40 guibg=#333333
-
-    " Custom diff colors for GVim
-    highlight DiffAdd    gui=BOLD guifg=NONE    guibg=#005f00
-    highlight DiffDelete gui=BOLD guifg=NONE    guibg=#5f0000
-    highlight DiffChange gui=BOLD guifg=NONE    guibg=#005f5f
-    highlight DiffText   gui=BOLD guifg=#ff00ff guibg=#005f5f
-endif
-
-" Change GVim font size without changing the font.
-function! SetFontSize(size)
-    if &guifont =~# ':h\d\+$'
-        let &guifont = substitute(&guifont, ':h\d\+$', ':h' . a:size, '')
-    elseif &guifont =~# ' \d\+$'
-        let &guifont = substitute(&guifont, ' \d\+$', ' ' . a:size, '')
-    else
-        echoerr 'Could not determine font size from guifont: ' . &guifont
-    endif
-endfunction
-
-command! -nargs=1 FS call SetFontSize(<args>)
-
-" Convenient lowercase aliases.
-cnoreabbrev <expr> fs
-    \ getcmdtype() ==# ':' && getcmdline() ==# 'fs'
-    \ ? 'FS'
-    \ : 'fs'
-
-cnoreabbrev <expr> size
-    \ getcmdtype() ==# ':' && getcmdline() ==# 'size'
-    \ ? 'set guifont?'
-    \ : 'size'
-
-"" VIM diff settings
+"" Diff & folds: .dt/.do/.du/.ds this/off/update/split, .df/.da next/prev change,
+""               [N / ]N get from / put to buffer N, zx / zz close / open all folds
 set diffopt+=vertical,iwhite,foldcolumn:0,algorithm:histogram,indent-heuristic
-
-" Diff shortcuts
 noremap <Leader>dt :diffthis
 noremap <Leader>do :diffoff
 noremap <Leader>du :diffupdate
 noremap <Leader>ds :diffsplit<Space>
 noremap <Leader>df ]c
 noremap <Leader>da [c
-noremap [1 :diffget 1<CR>
-noremap [2 :diffget 2<CR>
-noremap [3 :diffget 3<CR>
-noremap [4 :diffget 4<CR>
-noremap [5 :diffget 5<CR>
-noremap ]1 :diffput 1<CR>
-noremap ]2 :diffput 2<CR>
-noremap ]3 :diffput 3<CR>
-noremap ]4 :diffput 4<CR>
-noremap ]5 :diffput 5<CR>
-
-" Folding shortcuts
+for s:n in range(1, 5)
+  execute printf('noremap [%d :diffget %d<CR>', s:n, s:n)
+  execute printf('noremap ]%d :diffput %d<CR>', s:n, s:n)
+endfor
+unlet s:n
 noremap zx zM
 noremap zz zR
 
-" Custom diff colors
-highlight DiffAdd    cterm=BOLD ctermfg=NONE ctermbg=22
-highlight DiffDelete cterm=BOLD ctermfg=NONE ctermbg=52
-highlight DiffChange cterm=BOLD ctermfg=NONE ctermbg=23
-highlight DiffText   cterm=BOLD ctermfg=13 ctermbg=23
-
-" QuickFix settings
-function! ToggleQuickfix()
-  for win in getwininfo()
-    if win.quickfix
-      cclose
-      return
-    endif
-  endfor
-
-  " Open the quickfix window without moving focus into it.
-  let l:curwin = win_getid()
-  execute "copen | resize " . (&lines / 4)
-  call win_gotoid(l:curwin)
+"" Quickfix: .c toggle, .k/.j next/prev, ./ list every match of the last search in this file
+function! s:OpenQuickfix() abort   " quarter height, without moving the cursor into it
+  let l:win = win_getid()
+  execute 'copen | resize' (&lines / 4)
+  call win_gotoid(l:win)
 endfunction
-
+function! ToggleQuickfix() abort
+  if getqflist({'winid': 0}).winid | cclose | else | call s:OpenQuickfix() | endif
+endfunction
+function! SearchToQuickfix() abort
+  if empty(@/) | echo 'No search pattern' | return | endif
+  call setqflist([], 'r')
+  try
+    silent vimgrep //gj %
+  catch /E480/
+    echo 'No matches found for: ' . @/
+    return
+  endtry
+  call s:OpenQuickfix()
+endfunction
 nnoremap <silent> <Leader>c :call ToggleQuickfix()<CR>
+nnoremap <silent> <Leader>/ :call SearchToQuickfix()<CR>
 noremap <Leader>k :cnext<CR>
 noremap <Leader>j :cprev<CR>
 
-function! SearchToQuickfix()
-  let l:pattern = getreg('/')
-
-  if empty(l:pattern)
-    echo "No search pattern"
-    return
-  endif
-
-  " Clear the previous quickfix list.
-  call setqflist([], 'r')
-
-  try
-    " g = include every match on a line
-    " j = do not jump to the first match
-    execute 'silent vimgrep /' . escape(l:pattern, '/\') . '/gj %'
-  catch /^Vim\%((\a\+)\)\=:E480/
-    echo "No matches found for: " . l:pattern
-    return
-  endtry
-
-  " Open the quickfix window without moving focus into it.
-  let l:current_window = win_getid()
-  execute "copen | resize " . (&lines / 4)
-  call win_gotoid(l:current_window)
+"" Command-line shorthands. Each expands only when it is the entire ':' command, never inside
+"" searches, file names or other commands. CTRL-\ e rewrites the line; <expr> abbreviations
+"" can't be used because one-letter ones never fire on <CR>.
+function! s:Shorthand(lhs, rhs) abort
+  return getcmdtype() ==# ':' && getcmdline() ==# a:lhs ? a:rhs : getcmdline()
 endfunction
+for [s:lhs, s:rhs] in [
+      \ ['ev', 'e ~/.vimrc'], ['ea', 'e ~/.aliases'], ['name', "echo expand('%:p')"],
+      \ ['cf', 'let @+ = expand("%:p")'], ['ws', 'w !sudo tee %'], ['so', 'setlocal syntax=off'],
+      \ ['bd', 'bprevious <Bar> bdelete #'], ['a', 'qa'], ['aa', 'qa!'], ['wa', 'w <Bar> qa'],
+      \ ['fs', 'FS'], ['size', 'set guifont?'], ['ob', 'Ob'], ['od', 'ObPause']]
+  execute printf('cnoreabbrev %s %s<C-\>e<SID>Shorthand(%s, %s)<CR>', s:lhs, s:lhs, string(s:lhs), string(s:rhs))
+endfor
+unlet s:lhs s:rhs
 
-nnoremap <silent> <Leader>/ :call SearchToQuickfix()<CR>
-
-"""" Plugin Configuration
-
-"" NERDTree Configuration
+"" NERDTree: Ctrl+n focus, .nf find file, .nt toggle, .nr restore width
 let g:NERDTreeWinSize = 30
-
-" True if any window in the current tab is a NERDTree window
-function! s:NERDTreeIsOpen() abort
-  for w in range(1, winnr('$'))
-    if getwinvar(w, '&filetype') ==# 'nerdtree'
-      return 1
+function! NERDTreeResize() abort   " restore NERDTree's width, then equalize the other splits
+  for l:id in gettabinfo(tabpagenr())[0].windows
+    if getbufvar(winbufnr(l:id), '&filetype') ==# 'nerdtree'
+      call win_execute(l:id, 'vertical resize ' . g:NERDTreeWinSize)
+      wincmd =
+      return
     endif
   endfor
-  return 0
 endfunction
-
-function! s:NERDTreeWinNr() abort
-  for w in range(1, winnr('$'))
-    if getwinvar(w, '&filetype') ==# 'nerdtree'
-      return w
-    endif
-  endfor
-  return -1
-endfunction
-
-function! NERDTreeResize() abort
-  let l:nerdtree_win = s:NERDTreeWinNr()
-  if l:nerdtree_win == -1
-    return
-  endif
-
-  let l:curwin = winnr()
-
-  " Move to NERDTree, resize that window, then move back
-  execute l:nerdtree_win . 'wincmd w'
-  execute 'vertical resize ' . g:NERDTreeWinSize
-  execute l:curwin . 'wincmd w'
-
-  call s:EqualizeSplits()
-endfunction
-
 command! NERDTreeResize call NERDTreeResize()
-
-" NERDTree shortcut mapping
 nnoremap <C-n> :NERDTreeFocus<CR>
 nnoremap <Leader>nf :NERDTreeFind<CR>
 nnoremap <Leader>nt :NERDTreeToggle<CR>
 nnoremap <Leader>nr :NERDTreeResize<CR>
 
-"" Airline Configuration
-" Airline Options
-let g:airline_inactive_collapse=0
-
-" Set up Airline Theme
-let g:airline_theme='solarized_flood'
-
-" Custom Airline Theme color patching
+"" Airline
+let g:airline_theme = 'solarized_flood'
 let g:airline_theme_patch_func = 'AirlineThemePatch'
+let g:airline_inactive_collapse = 0
+let g:airline_powerline_fonts = 1
+let g:airline_symbols = extend(get(g:, 'airline_symbols', {}), {'linenr': ' Line:', 'colnr': ' Col:', 'maxlinenr': ''})
+let g:airline#extensions#default#layout = [['a', 'b', 'c'], ['x', 'y', 'z']]
+let g:airline#extensions#obsession#enabled = 0   " section y shows CustomObsessionStatus() instead
 
-function! AirlineThemePatch(palette)
-  if g:airline_theme ==# 'solarized_flood'
-    for mode in ['normal','insert','replace','visual','commandline','terminal']
-      if has_key(a:palette, mode)
-        " Remove italics from A / B / C / Z
-        let a:palette[mode].airline_a[4] = ''
-        let a:palette[mode].airline_b[4] = ''
-        let a:palette[mode].airline_c[4] = ''
-        let a:palette[mode].airline_z[4] = ''
-
-        " Only change backgrounds for b/c/x/y to match inactive theme:
-        " B + Y -> ctermbg=235, guibg=#262626
-        let a:palette[mode].airline_b[1] = '#262626'
-        let a:palette[mode].airline_b[3] = 235
-        let a:palette[mode].airline_y[1] = '#262626'
-        let a:palette[mode].airline_y[3] = 235
-
-        " C + X -> ctermbg=236, guibg=#303030 let a:palette[mode].airline_c[1] = '#303030' let a:palette[mode].airline_c[3] = 236
-        let a:palette[mode].airline_x[1] = '#303030'
-        let a:palette[mode].airline_x[3] = 236
-      endif
+" solarized_flood: no italics in a/b/c/z, b/y and c/x backgrounds match the inactive theme,
+" c/x text turns green in insert mode. Palette entries are [guifg, guibg, ctermfg, ctermbg, attr].
+function! AirlineThemePatch(palette) abort
+  if g:airline_theme !=# 'solarized_flood' | return | endif
+  for l:mode in ['normal', 'insert', 'replace', 'visual', 'commandline', 'terminal']
+    if !has_key(a:palette, l:mode) | continue | endif
+    let l:p = a:palette[l:mode]
+    for l:s in ['a', 'b', 'c', 'z'] | let l:p['airline_' . l:s][4] = '' | endfor
+    for [l:s, l:gui, l:term] in [['b', '#262626', 235], ['y', '#262626', 235], ['c', '#303030', 236], ['x', '#303030', 236]]
+      let l:p['airline_' . l:s][1] = l:gui
+      let l:p['airline_' . l:s][3] = l:term
     endfor
-
-    " Change text color in C / X to green in INSERT mode
-    if has_key(a:palette, 'insert')
-        let a:palette.insert.airline_c[0] = '#859900'
-        let a:palette.insert.airline_c[2] = 106
-
-        let a:palette.insert.airline_x[0] = '#859900'
-        let a:palette.insert.airline_x[2] = 106
-    endif
+  endfor
+  if has_key(a:palette, 'insert')
+    for l:s in ['c', 'x']
+      let a:palette.insert['airline_' . l:s][0] = '#859900'
+      let a:palette.insert['airline_' . l:s][2] = 106
+    endfor
   endif
 endfunction
 
-" Set up custom Airline symbols
-if !exists('g:airline_symbols')
-  let g:airline_symbols = {}
-endif
-
-"let g:airline_symbols_ascii = 1
-let g:airline_powerline_fonts = 1
-let g:airline_symbols.linenr = ' Line:'
-let g:airline_symbols.colnr = ' Col:'
-let g:airline_symbols.maxlinenr = ''
-
-let g:airline#extensions#default#layout = [
-    \ [ 'a', 'b', 'c' ],
-    \ [ 'x', 'y', 'z' ]
-    \ ]
-
-" Create custom Obsession status bar to be plugged into Airline
-function! CustomObsessionStatus()
-    let session = filereadable(v:this_session)
-    if exists('g:this_obsession') && session
-        let session_name = fnamemodify(g:this_obsession, ':t')
-        return printf('[Live: %s]', session_name)
-    elseif session
-        let session_name = fnamemodify(g:this_session, ':t')
-        return printf('[Paused: %s]', session_name)
-    else
-        return '[No Session]'
-    endif
+function! CustomObsessionStatus() abort
+  if !filereadable(v:this_session) | return '[No Session]' | endif
+  return exists('g:this_obsession')
+        \ ? '[Live: ' . fnamemodify(g:this_obsession, ':t') . ']'
+        \ : '[Paused: ' . fnamemodify(get(g:, 'this_session', v:this_session), ':t') . ']'
 endfunction
+augroup AirlineObsession
+  autocmd!
+  autocmd User AirlineAfterInit let g:airline_section_y = airline#section#create(['%{CustomObsessionStatus()}'])
+augroup END
 
-" Custom Airline section creation
-let g:airline_section_y = airline#section#create(['%{CustomObsessionStatus()}'])
-
-" Disable Airline/Obsession integration since I'm using a customized solution above
-let g:airline#extensions#obsession#enabled = 0
-
-"" GitGutter Configuration
+"" GitGutter: .gta/.gt toggle all/buffer, .gth line highlights, .gd diff vs base, .gq quickfix,
+""            .hd/.hs/.hu preview/stage/undo hunk, .hf/.ha next/prev hunk
+set updatetime=100 foldtext=gitgutter#fold#foldtext()
+let g:gitgutter_async = 1
+let g:gitgutter_max_signs = -1
+let g:gitgutter_diff_base = 'origin/main'
+let g:gitgutter_preview_win_location = 'bel'
 noremap <Leader>gta :GitGutterToggle<CR>
 noremap <Leader>gt :GitGutterBufferToggle<CR>
 noremap <Leader>gth :GitGutterLineHighlightsToggle<CR>
 noremap <Leader>gd :GitGutterDiffOrig<CR>
 noremap <Leader>gq :GitGutterQuickFix<CR>
-noremap <Leader>hd <Plug>(GitGutterPreviewHunk)
-noremap <Leader>hs <Plug>(GitGutterStageHunk)
-noremap <Leader>hu <Plug>(GitGutterUndoHunk)
-noremap <Leader>hf <Plug>(GitGutterNextHunk)
-noremap <Leader>ha <Plug>(GitGutterPrevHunk)
-set updatetime=100
-set foldtext=gitgutter#fold#foldtext()
-let g:gitgutter_async = 1
-let g:gitgutter_max_signs = -1
-let g:gitgutter_diff_base = 'origin/main'
-let g:gitgutter_preview_win_location = 'bel'
+map <Leader>hd <Plug>(GitGutterPreviewHunk)
+map <Leader>hs <Plug>(GitGutterStageHunk)
+map <Leader>hu <Plug>(GitGutterUndoHunk)
+map <Leader>hf <Plug>(GitGutterNextHunk)
+map <Leader>ha <Plug>(GitGutterPrevHunk)
 
-" Automatically disable GitGutter while a buffer is in Vim diff mode.
+" Suspend GitGutter in buffers shown in diff mode; re-enable only what this suspended.
 function! SyncGitGutterWithDiff() abort
-    if exists(':GitGutterBufferDisable') != 2
-        return
-    endif
-
-    if &diff
-        " Only remember disables performed automatically by this function.
-        if !get(b:, 'gitgutter_disabled_for_diff', 0)
-            silent! GitGutterBufferDisable
-            let b:gitgutter_disabled_for_diff = 1
-        endif
-    elseif get(b:, 'gitgutter_disabled_for_diff', 0)
-        silent! GitGutterBufferEnable
-        unlet b:gitgutter_disabled_for_diff
-    endif
+  if exists(':GitGutterBufferDisable') != 2 | return | endif
+  if &diff && !get(b:, 'gitgutter_disabled_for_diff', 0)
+    silent! GitGutterBufferDisable
+    let b:gitgutter_disabled_for_diff = 1
+  elseif !&diff && get(b:, 'gitgutter_disabled_for_diff', 0)
+    silent! GitGutterBufferEnable
+    unlet b:gitgutter_disabled_for_diff
+  endif
 endfunction
-
-" Synchronize GitGutter for every visible Vim window.
 function! SyncAllGitGutterDiffWindows() abort
-    for l:win in getwininfo()
-        call win_execute(l:win.winid, 'call SyncGitGutterWithDiff()')
-    endfor
+  for l:win in getwininfo() | call win_execute(l:win.winid, 'call SyncGitGutterWithDiff()') | endfor
 endfunction
 
-"" Obsession Configuration
-
-" ============================================================================
-" Session locations
-" ============================================================================
-
-" All sessions are centralized here.
-"
-" Default/path-based sessions:
-"   ~/obsessions/by-path/<launch-directory>/Session.vim
-"
-" Explicitly named sessions:
-"   ~/obsessions/named/<name>.vim
-let g:obsession_root = expand(
-    \ empty($OBSESSION_ROOT)
-    \ ? '~/obsessions'
-    \ : $OBSESSION_ROOT
-    \ )
-
-
-" Normalize a directory the same way the shell does with `pwd -P`.
-function! s:NormalizeObsessionDir(path) abort
-    let l:path = resolve(fnamemodify(a:path, ':p'))
-    let l:path = substitute(l:path, '/\+$', '', '')
-
-    return empty(l:path) ? '/' : l:path
-endfunction
-
-
-" Capture where this Vim instance was launched.
-"
-" This deliberately never changes, even if :cd is used later.
-let g:obsession_start_dir = s:NormalizeObsessionDir(getcwd())
-
-
-" Turn an absolute path into a path that can live below by-path/.
-"
-" /home/caleb/project
-" becomes:
-" home/caleb/project
-function! s:ObsessionPathKey(path) abort
-    let l:key = substitute(a:path, '^/\+', '', '')
-
-    return empty(l:key) ? '__root__' : l:key
-endfunction
-
-
-" Return this launch directory's default session.
-function! s:DefaultObsessionPath() abort
-    return g:obsession_root
-        \ . '/by-path/'
-        \ . s:ObsessionPathKey(g:obsession_start_dir)
-        \ . '/Session.vim'
-endfunction
-
-
-" Return the centralized path for an explicitly named session.
-function! s:NamedObsessionPath(name) abort
-    let l:file = fnamemodify(a:name, ':t')
-
-    if l:file !~# '\.vim$'
-        let l:file .= '.vim'
-    endif
-
-    return g:obsession_root . '/named/' . l:file
-endfunction
-
-
-" ============================================================================
-" Session locking
-" ============================================================================
-
-" Determine whether a session lock belongs to a running Vim.
-"
-" Same host:
-"   Check whether the recorded PID still exists.
-"
-" Different host:
-"   Conservatively assume the session is still active.
-function! s:ObsessionLockIsActive(lock_dir) abort
-    if !isdirectory(a:lock_dir)
-        return 0
-    endif
-
-    let l:owner_file = a:lock_dir . '/owner'
-
-    " Unknown/incomplete locks are treated as active for safety.
-    if !filereadable(l:owner_file)
-        return 1
-    endif
-
-    let l:owner = readfile(l:owner_file)
-
-    if len(l:owner) < 2
-        return 1
-    endif
-
-    let l:host = l:owner[0]
-    let l:pid  = l:owner[1]
-
-    " A different machine may still legitimately own this session.
-    if l:host !=# hostname()
-        return 1
-    endif
-
-    if l:pid !~# '^\d\+$'
-        return 1
-    endif
-
-    " Same host and PID still exists.
-    if isdirectory('/proc/' . l:pid)
-        return 1
-    endif
-
-    " Same host but dead PID: remove the stale lock.
-    call delete(a:lock_dir, 'rf')
-    return 0
-endfunction
-
-
-" Atomically claim a session.
-"
-" Returns the lock directory on success.
-" Returns '' when another Vim already owns the session.
-function! s:TryClaimObsession(session) abort
-    let l:session = fnamemodify(a:session, ':p')
-    let l:session_dir = fnamemodify(l:session, ':h')
-    let l:lock = l:session . '.lock'
-
-    call mkdir(l:session_dir, 'p')
-
-    if s:ObsessionLockIsActive(l:lock)
-        return ''
-    endif
-
-    " mkdir is our atomic claim operation.
-    try
-        let l:created = mkdir(l:lock)
-    catch
-        return ''
-    endtry
-
-    if !l:created
-        return ''
-    endif
-
-    try
-        call writefile(
-            \ [
-            \   hostname(),
-            \   string(getpid()),
-            \   g:obsession_start_dir
-            \ ],
-            \ l:lock . '/owner'
-            \ )
-    catch
-        call delete(l:lock, 'rf')
-        return ''
-    endtry
-
-    return l:lock
-endfunction
-
-
-" Release a lock only if this Vim actually owns it.
-function! s:ReleaseObsessionLockDir(lock_dir) abort
-    if empty(a:lock_dir) || !isdirectory(a:lock_dir)
-        return
-    endif
-
-    let l:owner_file = a:lock_dir . '/owner'
-
-    if !filereadable(l:owner_file)
-        return
-    endif
-
-    let l:owner = readfile(l:owner_file)
-
-    if len(l:owner) < 2
-        return
-    endif
-
-    if l:owner[0] ==# hostname()
-        \ && l:owner[1] ==# string(getpid())
-        call delete(a:lock_dir, 'rf')
-    endif
-endfunction
-
-
-function! s:ReleaseCurrentObsessionLock() abort
-    let l:lock = get(g:, 'obsession_lock_dir', '')
-
-    call s:ReleaseObsessionLockDir(l:lock)
-
-    unlet! g:obsession_lock_dir
-    unlet! g:obsession_lock_session
-endfunction
-
-
-" ============================================================================
-" Start / switch Obsession
-" ============================================================================
-
-function! s:TrackObsession(session, force) abort
-    if exists(':Obsession') != 2
-        return 0
-    endif
-
-    let l:session = fnamemodify(a:session, ':p')
-
-    " We already own and track this exact session.
-    if get(g:, 'obsession_lock_session', '') ==# l:session
-        \ && exists('g:this_obsession')
-        \ && fnamemodify(g:this_obsession, ':p') ==# l:session
-        return 1
-    endif
-
-    " Claim the new session before telling Obsession to use it.
-    let l:new_lock = s:TryClaimObsession(l:session)
-
-    if empty(l:new_lock)
-        echohl WarningMsg
-        echom 'Obsession already active: ' . l:session
-        echohl None
-        return 0
-    endif
-
-    let l:old_lock = get(g:, 'obsession_lock_dir', '')
-
-    try
-        if a:force
-            execute 'silent Obsession! ' . fnameescape(l:session)
-        else
-            execute 'silent Obsession ' . fnameescape(l:session)
-        endif
-    catch
-        call s:ReleaseObsessionLockDir(l:new_lock)
-        echoerr v:exception
-        return 0
-    endtry
-
-    " Make sure Obsession actually accepted the requested session.
-    if !exists('g:this_obsession')
-        \ || fnamemodify(g:this_obsession, ':p') !=# l:session
-        call s:ReleaseObsessionLockDir(l:new_lock)
-
-        echohl WarningMsg
-        echom 'Could not start Obsession: ' . l:session
-        echohl None
-        return 0
-    endif
-
-    let g:obsession_lock_dir = l:new_lock
-    let g:obsession_lock_session = l:session
-
-    " We successfully switched sessions, so the old lock can go.
-    if !empty(l:old_lock) && l:old_lock !=# l:new_lock
-        call s:ReleaseObsessionLockDir(l:old_lock)
-    endif
-
-    return 1
-endfunction
-
-
-" ============================================================================
-" Restore an existing session
-" ============================================================================
-
-function! s:LoadObsession(session) abort
-    let l:session = fnamemodify(a:session, ':p')
-
-    if !filereadable(l:session)
-        echohl WarningMsg
-        echom 'No saved session: ' . l:session
-        echohl None
-        return 0
-    endif
-
-    " The important part: lock BEFORE loading the session.
-    let l:lock = s:TryClaimObsession(l:session)
-
-    if empty(l:lock)
-        echohl WarningMsg
-        echom 'Session already active: ' . l:session
-        echohl None
-        return 0
-    endif
-
-    let l:old_session = v:this_session
-
-    try
-        " Make :source behave like loading through -S.
-        "
-        " Obsession-generated sessions restore g:this_obsession from
-        " v:this_session, so this must be set before sourcing.
-        let v:this_session = l:session
-
-        execute 'silent source ' . fnameescape(l:session)
-        
-        let v:this_session = l:session
-        
-        " Sessions are restored during VimEnter, after normal syntax startup.
-        " Re-run the existing FileType -> Syntax hookup for all restored buffers
-        " without reloading the colorscheme.
-        doautoall syntaxset FileType
-
-        " If this was not originally an Obsession-generated session,
-        " start tracking it now.
-        if !exists('g:this_obsession')
-            \ || fnamemodify(g:this_obsession, ':p') !=# l:session
-            execute 'silent Obsession ' . fnameescape(l:session)
-        endif
-
-    catch
-        " Pause this session if loading got far enough to activate Obsession.
-        if exists('g:this_obsession')
-            \ && fnamemodify(g:this_obsession, ':p') ==# l:session
-            silent! Obsession
-        endif
-
-        let v:this_session = l:old_session
-        call s:ReleaseObsessionLockDir(l:lock)
-
-        echoerr v:exception
-        return 0
-    endtry
-
-    let g:obsession_lock_dir = l:lock
-    let g:obsession_lock_session = l:session
-
-    return 1
-endfunction
-
-
-" ============================================================================
-" Protect sessions loaded manually with vim -S / gvim -S
-" ============================================================================
-
-function! s:ClaimLoadedObsession() abort
-    if !exists('g:this_obsession') || empty(g:this_obsession)
-        return 1
-    endif
-
-    let l:session = fnamemodify(g:this_obsession, ':p')
-    let l:lock = s:TryClaimObsession(l:session)
-
-    if empty(l:lock)
-        " The session was already sourced, but don't let this Vim keep
-        " writing to a session owned by another Vim.
-        silent! Obsession
-
-        echohl WarningMsg
-        echom 'Session already active; Obsession paused: ' . l:session
-        echohl None
-        return 0
-    endif
-
-    let g:obsession_lock_dir = l:lock
-    let g:obsession_lock_session = l:session
-
-    return 1
-endfunction
-
-
-" ============================================================================
-" :ob / :od commands
-" ============================================================================
-
-" :ob
-"     Track the default Session.vim belonging to the directory Vim
-"     was originally launched from.
-"
-" :ob NAME
-"     Track ~/obsessions/named/NAME.vim.
-function! s:ObWrapper(force, name) abort
-    if empty(a:name)
-        call s:TrackObsession(
-            \ s:DefaultObsessionPath(),
-            \ a:force
-            \ )
-    else
-        call s:TrackObsession(
-            \ s:NamedObsessionPath(a:name),
-            \ a:force
-            \ )
-    endif
-endfunction
-
-command! -bang -nargs=? Ob call s:ObWrapper(<bang>0, <q-args>)
-
-
-" Pause Obsession and release this Vim's lock.
-"
-" Unlike :Obsession!, this does NOT delete the saved session.
-function! s:PauseObsession() abort
-    if exists('g:this_obsession')
-        silent! Obsession
-    endif
-
-    call s:ReleaseCurrentObsessionLock()
-endfunction
-
-command! ObPause call s:PauseObsession()
-
-
-" Show exactly where bare :ob / vl / gl maps for this launch directory.
-command! ObPath echo s:DefaultObsessionPath()
-
-
-" Convenient lowercase aliases.
-cnoreabbrev <expr> ob
-    \ getcmdtype() ==# ':' && getcmdline() ==# 'ob'
-    \ ? 'Ob'
-    \ : 'ob'
-
-cnoreabbrev <expr> od
-    \ getcmdtype() ==# ':' && getcmdline() ==# 'od'
-    \ ? 'ObPause'
-    \ : 'od'
-
-"" Ctrl-P Congiguration
+"" CtrlP: Ctrl+f opens and closes it; Ctrl+k/j move down/up in the list
 let g:ctrlp_map = '<C-f>'
 let g:ctrlp_show_hidden = 1
 let g:ctrlp_prompt_mappings = {
-  \ 'PrtSelectMove("j")': ['<c-k>', '<down>'],
-  \ 'PrtSelectMove("k")': ['<c-j>', '<up>'],
-  \ 'ToggleType(1)':      ['<c-up>'],
-  \ 'PrtExit()':          ['<esc>', '<c-f>'],
-  \ }
+      \ 'PrtSelectMove("j")': ['<c-k>', '<down>'],
+      \ 'PrtSelectMove("k")': ['<c-j>', '<up>'],
+      \ 'ToggleType(1)':      ['<c-up>'],
+      \ 'PrtExit()':          ['<esc>', '<c-f>'],
+      \ }
 
+"" Obsession sessions: one live session per Vim, guarded by a lock directory.
+""   :ob [name]  (:Ob[!])  track ~/obsessions/named/<name>.vim, or with no name this launch
+""                         directory's ~/obsessions/by-path/<dir>/Session.vim  (! = overwrite)
+""   :od  (:ObPause)       stop tracking and release the lock (the session file is kept)
+""   :ObPath               show the default session path
+"" zsh's vl/gl pass $OBSESSION_LOAD_SESSION instead of -S so the lock is taken before sourcing.
+let g:obsession_root = expand(empty($OBSESSION_ROOT) ? '~/obsessions' : $OBSESSION_ROOT)
+let g:obsession_start_dir = substitute(resolve(fnamemodify(getcwd(), ':p')), '/\+$', '', '')   " like `pwd -P`; fixed at launch
+if empty(g:obsession_start_dir) | let g:obsession_start_dir = '/' | endif
 
-" Resize all open buffers to be equally split (accounts for NERDTree opening and taking space on the left-most side of the screen)
-augroup ResizeSplits
-  autocmd!
-  autocmd VimEnter,BufNew,BufAdd,BufDelete,WinNew,WinClosed,VimResized * call s:EqualizeSplits()
-augroup END
+function! s:SessionPath(name) abort   " '' → the launch directory's default session
+  if !empty(a:name)
+    let l:file = fnamemodify(a:name, ':t')
+    return g:obsession_root . '/named/' . l:file . (l:file =~# '\.vim$' ? '' : '.vim')
+  endif
+  let l:key = substitute(g:obsession_start_dir, '^/\+', '', '')
+  return g:obsession_root . '/by-path/' . (empty(l:key) ? '__root__' : l:key) . '/Session.vim'
+endfunction
 
-""" Autocommand Configuration
+function! s:Warn(msg) abort
+  echohl WarningMsg | echom a:msg | echohl None
+endfunction
+
+function! s:Tracking(session) abort   " Obsession is recording exactly this session
+  return exists('g:this_obsession') && fnamemodify(g:this_obsession, ':p') ==# a:session
+endfunction
+
+" Locks: <session>.lock/owner holds [hostname, pid, launch dir]; mkdir() is the atomic claim.
+function! s:LockOwner(lock) abort   " [host, pid], or [] when missing/incomplete
+  let l:file = a:lock . '/owner'
+  let l:owner = filereadable(l:file) ? readfile(l:file) : []
+  return len(l:owner) >= 2 ? l:owner[:1] : []
+endfunction
+
+function! s:LockIsActive(lock) abort
+  if !isdirectory(a:lock) | return 0 | endif
+  let l:owner = s:LockOwner(a:lock)
+  " An unknown owner, another host or a live PID all count as active; only a dead local PID is stale.
+  if empty(l:owner) || l:owner[0] !=# hostname() || l:owner[1] !~# '^\d\+$' || isdirectory('/proc/' . l:owner[1])
+    return 1
+  endif
+  call delete(a:lock, 'rf')
+  return 0
+endfunction
+
+function! s:ClaimLock(session) abort   " → the lock dir, or '' when another Vim owns the session
+  let l:lock = fnamemodify(a:session, ':p') . '.lock'
+  call mkdir(fnamemodify(l:lock, ':h'), 'p')
+  if s:LockIsActive(l:lock) | return '' | endif
+  try
+    if !mkdir(l:lock) | return '' | endif
+  catch
+    return ''
+  endtry
+  try
+    call writefile([hostname(), string(getpid()), g:obsession_start_dir], l:lock . '/owner')
+  catch
+    call delete(l:lock, 'rf')
+    return ''
+  endtry
+  return l:lock
+endfunction
+
+function! s:ReleaseLock(lock) abort   " only if this Vim owns it
+  if !empty(a:lock) && s:LockOwner(a:lock) ==# [hostname(), string(getpid())]
+    call delete(a:lock, 'rf')
+  endif
+endfunction
+
+function! s:ReleaseCurrentLock() abort
+  call s:ReleaseLock(get(g:, 'obsession_lock_dir', ''))
+  unlet! g:obsession_lock_dir g:obsession_lock_session
+endfunction
+
+function! s:HoldLock(lock, session) abort
+  let [g:obsession_lock_dir, g:obsession_lock_session] = [a:lock, a:session]
+  return 1
+endfunction
+
+function! s:TrackObsession(session, force) abort
+  if exists(':Obsession') != 2 | return 0 | endif
+  let l:session = fnamemodify(a:session, ':p')
+  if get(g:, 'obsession_lock_session', '') ==# l:session && s:Tracking(l:session) | return 1 | endif
+  let l:lock = s:ClaimLock(l:session)   " claim before Obsession touches the file
+  if empty(l:lock) | call s:Warn('Obsession already active: ' . l:session) | return 0 | endif
+  let l:old_lock = get(g:, 'obsession_lock_dir', '')
+  try
+    execute 'silent Obsession' . (a:force ? '!' : '') fnameescape(l:session)
+  catch
+    call s:ReleaseLock(l:lock)
+    echoerr v:exception
+    return 0
+  endtry
+  if !s:Tracking(l:session)
+    call s:ReleaseLock(l:lock)
+    call s:Warn('Could not start Obsession: ' . l:session)
+    return 0
+  endif
+  call s:HoldLock(l:lock, l:session)
+  if !empty(l:old_lock) && l:old_lock !=# l:lock | call s:ReleaseLock(l:old_lock) | endif
+  return 1
+endfunction
+
+function! s:LoadObsession(session) abort
+  let l:session = fnamemodify(a:session, ':p')
+  if !filereadable(l:session) | call s:Warn('No saved session: ' . l:session) | return 0 | endif
+  let l:lock = s:ClaimLock(l:session)   " lock BEFORE sourcing
+  if empty(l:lock) | call s:Warn('Session already active: ' . l:session) | return 0 | endif
+  let l:old_session = v:this_session
+  try
+    " Behave like -S: Obsession sessions restore g:this_obsession from v:this_session.
+    let v:this_session = l:session
+    execute 'silent source' fnameescape(l:session)
+    let v:this_session = l:session
+    " Sessions load after startup syntax setup; rerun FileType → Syntax for every restored buffer.
+    doautoall syntaxset FileType
+    if !s:Tracking(l:session) | execute 'silent Obsession' fnameescape(l:session) | endif
+  catch
+    if s:Tracking(l:session) | silent! Obsession | endif   " pause if loading got that far
+    let v:this_session = l:old_session
+    call s:ReleaseLock(l:lock)
+    echoerr v:exception
+    return 0
+  endtry
+  return s:HoldLock(l:lock, l:session)
+endfunction
+
+function! s:ClaimLoadedObsession() abort   " a session sourced by `vim -S`
+  let l:session = fnamemodify(g:this_obsession, ':p')
+  let l:lock = s:ClaimLock(l:session)
+  if empty(l:lock)
+    silent! Obsession   " it's loaded, but another Vim is already writing it
+    call s:Warn('Session already active; Obsession paused: ' . l:session)
+    return 0
+  endif
+  return s:HoldLock(l:lock, l:session)
+endfunction
+
+command! -bang -nargs=? Ob call s:TrackObsession(s:SessionPath(<q-args>), <bang>0)
+command! ObPause if exists('g:this_obsession') | silent! Obsession | endif | call s:ReleaseCurrentLock()
+command! ObPath echo s:SessionPath('')
+
+"" Startup
+function! s:IsViewer() abort   " man pages and kitty scrollback never touch sessions or plugin UI
+  return !empty($KITTY_SCROLLBACK) || !empty($VIM_MANPAGER)
+endfunction
 
 function! s:MaybeStartObsession() abort
-    " Temporary viewer instances should never participate in Obsession.
-    if !empty($KITTY_SCROLLBACK) || !empty($VIM_MANPAGER)
-        return
-    endif
-
-    if exists(':Obsession') != 2
-        return
-    endif
-
-    " vl/gl use this variable instead of -S so we can acquire the
-    " session lock BEFORE sourcing the session.
-    if !empty($OBSESSION_LOAD_SESSION)
-        let l:session = $OBSESSION_LOAD_SESSION
-
-        " Don't let shells/programs launched from Vim inherit this request.
-        let $OBSESSION_LOAD_SESSION = ''
-
-        call s:LoadObsession(l:session)
-        return
-    endif
-
-    " Handle an Obsession session that was loaded manually with -S.
-    if exists('g:this_obsession') && !empty(g:this_obsession)
-        call s:ClaimLoadedObsession()
-        return
-    endif
-
-    " Some unrelated/non-Obsession Vim session was loaded.
-    if !empty(v:this_session)
-        return
-    endif
-
-    " Normal Vim/GVim startup:
-    " begin tracking this launch directory's default Session.vim.
-    call s:TrackObsession(s:DefaultObsessionPath(), 0)
+  if s:IsViewer() || exists(':Obsession') != 2 | return | endif
+  if !empty($OBSESSION_LOAD_SESSION)   " vl/gl; don't let child shells inherit the request
+    let l:session = $OBSESSION_LOAD_SESSION
+    let $OBSESSION_LOAD_SESSION = ''
+    call s:LoadObsession(l:session)
+  elseif !empty(get(g:, 'this_obsession', ''))
+    call s:ClaimLoadedObsession()
+  elseif empty(v:this_session)   " plain startup; non-Obsession sessions are left alone
+    call s:TrackObsession(s:SessionPath(''), 0)
+  endif
 endfunction
 
 function! s:SafePluginStartup() abort
-    " Don't run workspace-oriented startup behavior for temporary viewers.
-    if !empty($KITTY_SCROLLBACK) || !empty($VIM_MANPAGER)
-        return
-    endif
-
-    if exists(':GitGutterAll') == 2
-        silent! GitGutterAll
-    endif
-
-    if exists(':GitGutterLineHighlightsEnable') == 2
-        silent! GitGutterLineHighlightsEnable
-    endif
-
-    if exists(':NERDTree') == 2
-        try
-            silent NERDTree
-            silent! wincmd p
-        catch
-            " Ignore inaccessible directories and other NERDTree startup errors.
-        endtry
-    endif
+  if s:IsViewer() | return | endif
+  silent! GitGutterAll
+  silent! GitGutterLineHighlightsEnable
+  try   " ignore inaccessible directories and other NERDTree startup errors
+    silent NERDTree
+    silent! wincmd p
+  catch
+  endtry
 endfunction
 
+"" Autocommands (VimEnter order matters: equalize, session, plugin UI, GitGutter/diff sync)
+augroup ResizeSplits
+  autocmd!
+  autocmd VimEnter,BufNew,BufAdd,BufDelete,WinNew,WinClosed,VimResized * wincmd =
+augroup END
 augroup SafePluginStartup
   autocmd!
   autocmd VimEnter * call s:MaybeStartObsession()
   autocmd VimEnter * call s:SafePluginStartup()
 augroup END
-
-" Obsession performs its final save during VimLeavePre.
-" Release our lock afterward.
+" Obsession saves on VimLeavePre, so the lock is released afterwards.
 augroup ObsessionLock
-    autocmd!
-    autocmd VimLeave * call s:ReleaseCurrentObsessionLock()
+  autocmd!
+  autocmd VimLeave * call s:ReleaseCurrentLock()
 augroup END
-
 augroup GitGutterDiffMode
-    autocmd!
-    autocmd OptionSet diff call SyncAllGitGutterDiffWindows()
-    autocmd WinEnter,BufEnter,WinNew * call SyncAllGitGutterDiffWindows()
-    autocmd VimEnter * call SyncAllGitGutterDiffWindows()
+  autocmd!
+  autocmd OptionSet diff call SyncAllGitGutterDiffWindows()
+  autocmd VimEnter,WinEnter,BufEnter,WinNew * call SyncAllGitGutterDiffWindows()
 augroup END
