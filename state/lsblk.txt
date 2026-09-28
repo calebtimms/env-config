@@ -1,20 +1,20 @@
-arch_vg-root 3.6T lvm btrfs  archroot 22f7ed40-17cc-405d-8548-6030021d28c3 
-nvme0n1 3.6T disk     
-nvme0n1p1 2G part vfat FAT32 ARCH_EFI 915D-8BC2 20378438-0451-43d2-9ce1-6cf8ce85a3a2
-nvme0n1p2 3.6T part LVM2_member LVM2\x20001  n1PcK8-iPBc-OGmt-q8SK-hgW6-JR8t-07kQzt ee38a4b7-9cb4-4b0a-ba9d-de2d833db45b
-nvme1n1 1.9T disk     
-nvme1n1p1 100M part vfat FAT32  DCE3-60C6 2498983e-6908-43af-a94a-de17a29e6f55
-nvme1n1p2 16M part     8e981cdf-0cb4-4297-ab50-8647bf7e4bdd
-nvme1n1p3 1.9T part ntfs   369CE5FA9CE5B491 f1122752-2dba-4460-a8fd-d635a106eed1
-nvme1n1p4 889M part ntfs   1AF221DDF221BDBF d48462a9-a209-4079-a99f-7358c06135ba
-sda 476.9G disk     
-sda1 2G part vfat FAT32  C9A9-F260 2c4c4478-3836-431a-9e7d-c67adaa62967
-sda2 8G part ext4 1.0  eeabaa72-7205-4f97-a46a-5c3d7d2458b5 f056be3f-31fd-4528-8a71-6cc0e2944153
-sda3 466.9G part crypto_LUKS 2  48d0ab18-b3b8-4e25-9dd6-70c64e791cee d7c9acd7-b905-483c-885b-41805efb7aec
-sdb 465.8G disk     
-sdb1 465.8G part ntfs  Expansion\x202 1CE80571E8054B0A ccbb4b6c-01
-sdc 0B disk     
-sdd 0B disk     
-sde 0B disk     
-sdf 5.5T disk     
-sdf1 5.5T part ntfs  My\x20Passport F6E0C1E8E0C1AEE5 a7291531-d349-40bd-a918-c1d3477bdd66
+/dev/disk/by-id/nvme-INTEL_SSDPEKKW020T8_BTHH85132E9Z2P0F 1.9T disk     
+/dev/disk/by-id/nvme-INTEL_SSDPEKKW020T8_BTHH85132E9Z2P0F-part1 100M part vfat FAT32  DCE3-60C6 2498983e-6908-43af-a94a-de17a29e6f55
+/dev/disk/by-id/nvme-INTEL_SSDPEKKW020T8_BTHH85132E9Z2P0F-part2 16M part     8e981cdf-0cb4-4297-ab50-8647bf7e4bdd
+/dev/disk/by-id/nvme-INTEL_SSDPEKKW020T8_BTHH85132E9Z2P0F-part3 1.9T part ntfs   369CE5FA9CE5B491 f1122752-2dba-4460-a8fd-d635a106eed1
+/dev/disk/by-id/nvme-INTEL_SSDPEKKW020T8_BTHH85132E9Z2P0F-part4 889M part ntfs   1AF221DDF221BDBF d48462a9-a209-4079-a99f-7358c06135ba
+/dev/disk/by-id/nvme-eui.002538a4514042df 3.6T disk     
+/dev/disk/by-id/nvme-eui.002538a4514042df-part1 2G part vfat FAT32 ARCH_EFI 915D-8BC2 20378438-0451-43d2-9ce1-6cf8ce85a3a2
+/dev/disk/by-id/nvme-eui.002538a4514042df-part2 3.6T part LVM2_member LVM2\x20001  n1PcK8-iPBc-OGmt-q8SK-hgW6-JR8t-07kQzt ee38a4b7-9cb4-4b0a-ba9d-de2d833db45b
+/dev/disk/by-id/usb-Generic_MassStorageClass_000000001539-0:0 0B disk     
+/dev/disk/by-id/usb-Generic_MassStorageClass_000000002958-0:0 0B disk     
+/dev/disk/by-id/usb-Generic_MassStorageClass_000000002958-0:1 0B disk     
+/dev/disk/by-id/wwn-0x50014ee2c1951ccc 5.5T disk     
+/dev/disk/by-id/wwn-0x50014ee2c1951ccc-part1 5.5T part ntfs  My\x20Passport F6E0C1E8E0C1AEE5 a7291531-d349-40bd-a918-c1d3477bdd66
+/dev/disk/by-id/wwn-0x5002538840241b01 476.9G disk     
+/dev/disk/by-id/wwn-0x5002538840241b01-part1 2G part vfat FAT32  C9A9-F260 2c4c4478-3836-431a-9e7d-c67adaa62967
+/dev/disk/by-id/wwn-0x5002538840241b01-part2 8G part ext4 1.0  eeabaa72-7205-4f97-a46a-5c3d7d2458b5 f056be3f-31fd-4528-8a71-6cc0e2944153
+/dev/disk/by-id/wwn-0x5002538840241b01-part3 466.9G part crypto_LUKS 2  48d0ab18-b3b8-4e25-9dd6-70c64e791cee d7c9acd7-b905-483c-885b-41805efb7aec
+/dev/disk/by-id/wwn-0x5002538e4024af85 465.8G disk     
+/dev/disk/by-id/wwn-0x5002538e4024af85-part1 465.8G part ntfs  Expansion\x202 1CE80571E8054B0A ccbb4b6c-01
+/dev/mapper/arch_vg-root 3.6T lvm btrfs  archroot 22f7ed40-17cc-405d-8548-6030021d28c3 

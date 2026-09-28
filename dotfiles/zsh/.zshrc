@@ -4,8 +4,8 @@
 # === Environment ==============================================================
 
 typeset -U path fpath
-path_prepend() { [[ -d $1 ]] && path=($1 $path) }
-path_prepend ~/env-config/scripts
+path-prepend() { [[ -d $1 ]] && path=($1 $path) }
+path-prepend ~/env-config/scripts
 
 export EDITOR=vim SUDO_EDITOR=vim
 export OBSESSION_ROOT=${OBSESSION_ROOT:-$HOME/obsessions}
@@ -43,7 +43,7 @@ autoload -Uz compinit
 _ZCOMPDUMP=${ZDOTDIR:-$HOME}/.zcompdump
 if [[ -n $_ZCOMPDUMP(#qN.mh-24) ]]; then compinit -C -d $_ZCOMPDUMP
 else compinit -d $_ZCOMPDUMP && touch $_ZCOMPDUMP; fi
-completion_refresh() { rehash; rm -f $_ZCOMPDUMP $_ZCOMPDUMP.zwc; compinit -d $_ZCOMPDUMP }
+completion-refresh() { rehash; rm -f $_ZCOMPDUMP $_ZCOMPDUMP.zwc; compinit -d $_ZCOMPDUMP }
 
 # List ambiguous matches; never cycle through or auto-accept them.
 unsetopt automenu
@@ -52,12 +52,12 @@ zstyle ':completion:*' accept-exact-dirs false
 zstyle ':completion:*' insert-tab false
 
 # === Custom command registry ==================================================
-# Every user-facing command is registered so `list_custom [-v] [filter]` can index it.
+# Every user-facing command is registered so `list-custom [-v] [filter]` can index it.
 
 typeset -ga _CUSTOM_ORDER=() _CUSTOM_GROUP_ORDER=(Shell Files Search Editors Git Packages System Applications Tools)
 typeset -gA _CUSTOM_GROUP=() _CUSTOM_DESC=()
 
-_custom_register() {  # GROUP name 'description' ...
+_custom-register() {  # GROUP name 'description' ...
     local group=$1; shift
     (( $_CUSTOM_GROUP_ORDER[(Ie)$group] )) || _CUSTOM_GROUP_ORDER+=($group)
     while (( $# >= 2 )); do
@@ -67,18 +67,18 @@ _custom_register() {  # GROUP name 'description' ...
     done
 }
 
-_custom_alias() {  # GROUP name 'expansion' 'description' ...
+_custom-alias() {  # GROUP name 'expansion' 'description' ...
     local group=$1; shift
-    while (( $# >= 3 )); do alias -- "$1=$2"; _custom_register "$group" "$1" "$3"; shift 3; done
+    while (( $# >= 3 )); do alias -- "$1=$2"; _custom-register "$group" "$1" "$3"; shift 3; done
 }
 
-list_custom() {
+list-custom() {
     local verbose=0 printed=0 filter group name kind
     local -a matches
     while (( $# )); do
         case $1 in
             -v|-verbose|--verbose) verbose=1 ;;
-            -h|--help) print -l 'Usage: list_custom [-v|--verbose] [filter]' 'Filter matches command name, category, or description.'; return 0 ;;
+            -h|--help) print -l 'Usage: list-custom [-v|--verbose] [filter]' 'Filter matches command name, category, or description.'; return 0 ;;
             -*) print -u2 "Unknown option: $1"; return 2 ;;
             *)  [[ -z $filter ]] || { print -u2 'Only one filter may be supplied.'; return 2 }; filter=$1 ;;
         esac
@@ -110,21 +110,21 @@ list_custom() {
     (( printed )) || { print -u2 "No custom commands matched: $filter"; return 1 }
 }
 
-_list_custom() {
+_list-custom() {
     local name; local -a filters=(${^_CUSTOM_GROUP_ORDER}':command category')
     for name in $_CUSTOM_ORDER; do filters+=("$name:$_CUSTOM_DESC[$name]"); done
     _arguments '(-v -verbose --verbose)'{-v,-verbose,--verbose}'[show command descriptions]' \
                '(-h --help)'{-h,--help}'[show help]' \
                '1:command or category:{_describe "command or category" filters}'
 }
-compdef _list_custom list_custom
+compdef _list-custom list-custom
 
-_custom_register Shell list_custom 'List custom commands; use --verbose for descriptions.'
-_custom_alias Shell \
+_custom-register Shell list-custom 'List custom commands; use --verbose for descriptions.'
+_custom-alias Shell \
     sz   'source ~/.zshrc' 'Reload ~/.zshrc in the current shell.' \
     vimz 'vim ~/.zshrc'    'Edit ~/.zshrc in Vim.' \
     type 'type -a'         'Show all resolutions for a command name.'
-_custom_register Shell completion_refresh 'Rebuild Zsh command and completion caches.'
+_custom-register Shell completion-refresh 'Rebuild Zsh command and completion caches.'
 
 # === Line editor ==============================================================
 
@@ -155,7 +155,7 @@ if (( $+commands[fzf] )); then
     export FZF_DEFAULT_OPTS='--height=60% --layout=reverse --border --cycle --bind=ctrl-k:down,ctrl-j:up,ctrl-d:half-page-down,ctrl-u:half-page-up'
     # Keep fzf's **<Tab> completion; ^R, ^T and Alt+C belong to the pickers below.
     FZF_CTRL_R_COMMAND= FZF_CTRL_T_COMMAND= FZF_ALT_C_COMMAND= source <(fzf --zsh 2>/dev/null)
-    (( $+widgets[fzf-completion] )) && zle -A fzf-completion _fzf_completion_original
+    (( $+widgets[fzf-completion] )) && zle -A fzf-completion _fzf-completion-original
 fi
 (( $+commands[fd] )) && export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git --exclude .cache'
 (( $+commands[zoxide] )) && eval "$(zoxide init zsh --cmd cd)"
@@ -167,7 +167,7 @@ fi
 # A glob in a parent component offers only children present under *every* matched parent:
 #   .venv*/li<Tab> → .venv*/lib     .venv*/lib64/<Tab> → list common children     Do*<Tab> → list
 
-_glob_list_completer() {
+_glob-list-completer() {
     local dir leaf pattern parent match name
     local -i nparents display_only
     local -a parents dirs files
@@ -206,23 +206,23 @@ _glob_list_completer() {
     (( $#dirs )) && compadd $flags -S / -- ${(o)dirs}
     (( $#files )) && compadd $flags -- ${(o)files}
 }
-zle -C _glob_list_widget list-choices _glob_list_completer
+zle -C _glob-list-widget list-choices _glob-list-completer
 
-_smart_tab_completion() {
+_smart-tab-completion() {
     local word
     [[ $LBUFFER == *[[:space:]] ]] || word=${${(z)LBUFFER}[-1]}
-    if [[ $word == *'**'* ]] && (( $+widgets[_fzf_completion_original] )); then zle _fzf_completion_original
-    elif [[ $word == *[\*\?\[]* ]]; then zle _glob_list_widget
+    if [[ $word == *'**'* ]] && (( $+widgets[_fzf-completion-original] )); then zle _fzf-completion-original
+    elif [[ $word == *[\*\?\[]* ]]; then zle _glob-list-widget
     else zle complete-word; fi
 }
-zle -N _smart_tab_completion
-bindkey -M emacs '^I' _smart_tab_completion
+zle -N _smart-tab-completion
+bindkey -M emacs '^I' _smart-tab-completion
 
 # === Pickers ==================================================================
 # ^F all history · ^R this directory's history · ^T files · ^G directories. The same keys switch
 # pickers inside fzf (the active picker's key closes it); ^D deletes the highlighted history entry.
 
-_atuin_history_rows() {
+_atuin-history-rows() {
     (( $+commands[atuin] )) || return 1
     atuin search "$@" --reverse --human --format $'{command}\x1f{relativetime}\x1f{exit}\x1f{duration}\x1f{directory}' |
         awk -F $'\x1f' -v OFS=$'\x1f' -v home="$HOME" '
@@ -242,12 +242,12 @@ _atuin_history_rows() {
 }
 
 # Delete every history entry exactly equal to $1 (regex-escaped, including "/" for atuin's r/…/).
-_atuin_history_delete_exact() {
+_atuin-history-delete-exact() {
     local regex=${1//(#m)[][\\.^\$|?*+(){}\/]/\\$MATCH}
     [[ -n $regex ]] && atuin search --delete --search-mode fuzzy -- "r/^${regex}$/"
 }
 
-_fzf_switcher() {
+_fzf-switcher() {
     (( $+commands[fzf] )) || return 1
     local mode=$1 next result label fd preview file cols
     local -a lines picked cwd extra
@@ -260,7 +260,7 @@ _fzf_switcher() {
         (( $+commands[$needs[$mode]] )) || return 1
         if [[ $mode == *history ]]; then
             cwd=(); [[ $mode == directory_history ]] && cwd=(--cwd .)
-            result=$(_atuin_history_rows $cwd |
+            result=$(_atuin-history-rows $cwd |
                 fzf --ansi --scheme=history --no-hscroll --delimiter=$'\x1f' --with-nth=2 --accept-nth=1 \
                     --header="$nav  │  Ctrl+D: Delete"$'\n'"$search  $logic"$'\n'"$cols" \
                     --prompt="${cwd:+Directory }History> " --expect=ctrl-f,ctrl-r,ctrl-t,ctrl-g,ctrl-d)
@@ -304,7 +304,7 @@ _fzf_switcher() {
             [[ $next == $mode ]] && break
             mode=$next; zle reset-prompt; zle -R; continue
         elif [[ $lines[1] == ctrl-d ]]; then
-            [[ -n ${picked[1]-} ]] && _atuin_history_delete_exact $picked[1]
+            [[ -n ${picked[1]-} ]] && _atuin-history-delete-exact $picked[1]
             continue
         fi
         (( $#picked )) || break
@@ -318,26 +318,26 @@ _fzf_switcher() {
     zle reset-prompt; zle -R
 }
 
-_fzf_history_switcher() { _fzf_switcher history }
-_fzf_directory_history_switcher() { _fzf_switcher directory_history }
-_fzf_file_switcher() { _fzf_switcher files }
-_fzf_directory_switcher() { _fzf_switcher directories }
-zle -N _fzf_history_switcher; zle -N _fzf_directory_history_switcher
-zle -N _fzf_file_switcher;    zle -N _fzf_directory_switcher
+_fzf-history-switcher() { _fzf-switcher history }
+_fzf-directory-history-switcher() { _fzf-switcher directory_history }
+_fzf-file-switcher() { _fzf-switcher files }
+_fzf-directory-switcher() { _fzf-switcher directories }
+zle -N _fzf-history-switcher; zle -N _fzf-directory-history-switcher
+zle -N _fzf-file-switcher;    zle -N _fzf-directory-switcher
 
 if (( $+commands[fzf] && $+commands[atuin] )); then
-    bindkey -M emacs '^F' _fzf_history_switcher
-    bindkey -M emacs '^R' _fzf_directory_history_switcher
+    bindkey -M emacs '^F' _fzf-history-switcher
+    bindkey -M emacs '^R' _fzf-directory-history-switcher
 fi
 if (( $+commands[fzf] && $+commands[fd] )); then
-    bindkey -M emacs '^T' _fzf_file_switcher
-    bindkey -M emacs '^G' _fzf_directory_switcher
+    bindkey -M emacs '^T' _fzf-file-switcher
+    bindkey -M emacs '^G' _fzf-directory-switcher
 fi
 
 # === Files ====================================================================
 
 if (( $+commands[eza] )); then
-    _custom_alias Files \
+    _custom-alias Files \
         ls  'eza -a --icons=auto'                            'List all files using eza when available.' \
         ll  'eza -la --icons=auto'                           'Long file listing including hidden entries.' \
         lt  'eza -la --icons=auto --sort=modified'           'Long listing sorted newest first.' \
@@ -345,27 +345,27 @@ if (( $+commands[eza] )); then
         lg  'eza -la --git --icons=auto'                     'Long eza listing with Git status.' \
         et  'eza --tree --icons=auto'                        'Show an eza directory tree.'
 else
-    _custom_alias Files \
+    _custom-alias Files \
         ls  'command ls -AF --color=auto'    'List all files using eza when available.' \
         ll  'command ls -lAF --color=auto'   'Long file listing including hidden entries.' \
         lt  'command ls -lAFt --color=auto'  'Long listing sorted newest first.' \
         ltr 'command ls -lAFrt --color=auto' 'Long listing sorted oldest first.'
 fi
-(( $+commands[tree] )) && _custom_alias Files tree 'tree -a' 'Show directory trees including hidden entries.'
-(( $+commands[dust] )) && _custom_alias Files dust 'dust -r' 'Show disk usage in reverse size order.'
+(( $+commands[tree] )) && _custom-alias Files tree 'tree -a' 'Show directory trees including hidden entries.'
+(( $+commands[dust] )) && _custom-alias Files dust 'dust -r' 'Show disk usage in reverse size order.'
 
 # === Search ===================================================================
 
-_custom_alias Search grep 'grep --color=auto' 'Run GNU grep with automatic color.'
+_custom-alias Search grep 'grep --color=auto' 'Run GNU grep with automatic color.'
 # grep's "file\0line:text" (ANSI-colored) becomes "file : line : text".
-_grep_pretty() { perl -pe 'BEGIN { $ansi = qr/\e\[[0-9;]*[A-Za-z]/ } s/\0/ : /; s/( : (?:$ansi)*[0-9]+(?:$ansi)*):/$1 : /' }
-e()  { grep -Z -EHsiInr --color=always "$@" | _grep_pretty }
-ep() { grep -Z -EHsiIn --color=always "$@" | _grep_pretty }
-z()  { zgrep -HsiIn --color=always "$@" | _grep_pretty }
+_grep-pretty() { perl -pe 'BEGIN { $ansi = qr/\e\[[0-9;]*[A-Za-z]/ } s/\0/ : /; s/( : (?:$ansi)*[0-9]+(?:$ansi)*):/$1 : /' }
+e()  { grep -Z -EHsiInr --color=always "$@" | _grep-pretty }
+ep() { grep -Z -EHsiIn --color=always "$@" | _grep-pretty }
+z()  { zgrep -HsiIn --color=always "$@" | _grep-pretty }
 hs()   { (( $# )) || { print 'Usage: hs <history-search-pattern>'; return 1 }; fc -l 1 | grep -EHiIn --color=auto -- "$*" }
 fdir() { (( $# )) || { print 'Usage: fdir <directory-name-pattern>'; return 1 }; find . -type d -iname "*$1*" }
 ff()   { (( $# )) || { print 'Usage: ff <file-name-pattern>'; return 1 }; find . -type f -iname "*$1*" }
-_custom_register Search \
+_custom-register Search \
     e    'Recursive case-insensitive grep with formatted file/line output.' \
     ep   'Search explicitly supplied files with formatted grep output.' \
     z    'Search compressed files with formatted zgrep output.' \
@@ -376,8 +376,8 @@ _custom_register Search \
 # === Git ======================================================================
 
 gg() { git grep -in --color=always "$@" | sed -e 's/:/ : /1' -e 's/:/ : /2' }
-_custom_register Git gg 'Search tracked Git content with formatted output.'
-_custom_alias Git \
+_custom-register Git gg 'Search tracked Git content with formatted output.'
+_custom-alias Git \
     gf   'git ls-files | rg'                        'Search tracked Git filenames with ripgrep.' \
     gm   'git config pull.rebase false && git pull' 'Set pull to merge for this repo, then pull.' \
     gr   'git config pull.rebase true && git pull'  'Set pull to rebase for this repo, then pull.' \
@@ -388,7 +388,7 @@ _custom_alias Git \
 gc() { git commit -m "$*" }
 
 # origin's default branch: origin/HEAD, else the first of origin/main, origin/master, origin.
-_git_origin_ref() {
+_git-origin-ref() {
     local ref
     ref=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) && { print -r -- $ref; return }
     for ref in origin/main origin/master origin; do
@@ -396,13 +396,13 @@ _git_origin_ref() {
     done
     print -u2 'No origin remote-tracking reference found.'; return 1
 }
-gdo() { local ref; ref=$(_git_origin_ref) || return; git diff $ref "$@" }
+gdo() { local ref; ref=$(_git-origin-ref) || return; git diff $ref "$@" }
 
 # gdoo [outfile] [diff-args]: per-file headers become "diff <path>", hunks become "@ Hunk N @".
 gdoo() {
     local out=./gitdiff_to_origin ref
     if [[ $# -gt 0 && $1 != -- ]]; then out=$1; shift; elif [[ $1 == -- ]]; then shift; fi
-    ref=$(_git_origin_ref) || return
+    ref=$(_git-origin-ref) || return
     git diff $ref "$@" | awk '
         /^diff --git / { if (files++) print ""; path = $3; sub(/^[abcw]\//, "", path); print "diff " path; hunk = 0; header = 1; next }
         header && /^(index |new file mode |--- |\+\+\+ )/ { next }
@@ -417,7 +417,7 @@ glogf() { glog --name-only "$@" }
 DEFAULT_CLONE_REPO=${DEFAULT_CLONE_REPO:-/nfs/site/disks/ttl.git.zsc10.001/ttlh78/hub-ttlh78-a0}
 clone() { git clone $DEFAULT_CLONE_REPO "$@" }
 
-_custom_register Git \
+_custom-register Git \
     gc    'Commit staged changes using the arguments as the message.' \
     gdo   'Show a diff against the origin default branch.' \
     gdoo  'Write a simplified diff against the origin default branch.' \
@@ -427,7 +427,7 @@ _custom_register Git \
 
 # === Editors & Vim sessions ===================================================
 
-_custom_alias Editors \
+_custom-alias Editors \
     v      vim             'Open terminal Vim.' \
     g      gvim            'Open GVim.' \
     vv     'vim -O'        'Open files in side-by-side Vim splits.' \
@@ -435,12 +435,12 @@ _custom_alias Editors \
     vimv   'vim ~/.vimrc'  'Edit ~/.vimrc in Vim.' \
     gvimv  'gvim ~/.vimrc' 'Edit ~/.vimrc in GVim.' \
     sv     sudoedit        'Edit a privileged file through sudoedit.' \
-    ob_fix "sed -i \"s/'let \(g:this_[a-z]* = v:this_session'\)/'\1/\" ~/.vim/pack/plugins/start/obsession/plugin/obsession.vim" \
+    ob-fix "sed -i \"s/'let \(g:this_[a-z]* = v:this_session'\)/'\1/\" ~/.vim/pack/plugins/start/obsession/plugin/obsession.vim" \
                            'Patch Vim Obsession for the installed Vim version.'
 
 # vl/gl [name | -- vim-args]: resume ~/obsessions/named/<name>.vim, or this directory's
 # ~/obsessions/by-path/<physical cwd>/Session.vim. No -S: Vim takes the session lock before sourcing.
-_session_load() {
+_session-load() {
     local editor=$1 session; shift
     if (( $# )) && [[ $1 != -- ]]; then
         session=${1:t}; shift
@@ -454,9 +454,9 @@ _session_load() {
     [[ -f $session ]] || { print -u2 -l 'No saved session:' "  $session"; return 1 }
     OBSESSION_LOAD_SESSION=$session command $editor "$@"
 }
-vl() { _session_load vim "$@" }
-gl() { _session_load gvim "$@" }
-_session_complete() {
+vl() { _session-load vim "$@" }
+gl() { _session-load gvim "$@" }
+_session-complete() {
     if (( CURRENT == 2 )); then
         local -a sessions=($OBSESSION_ROOT/named/*.vim(N:t:r))
         (( $#sessions )) && _describe 'named session' sessions
@@ -464,19 +464,19 @@ _session_complete() {
         _files
     fi
 }
-compdef _session_complete vl gl
-_custom_register Editors vl 'Open a saved Vim session.' gl 'Open a saved GVim session.'
+compdef _session-complete vl gl
+_custom-register Editors vl 'Open a saved Vim session.' gl 'Open a saved GVim session.'
 
 # === Packages =================================================================
 
-_custom_alias Packages \
+_custom-alias Packages \
     pi 'sudo pacman -S'   'Install packages with pacman.' \
     pr 'sudo pacman -Rsu' 'Remove packages and unneeded dependencies with pacman.' \
     ps 'pacman -Ss'       'Search official Arch repositories.' \
     pu 'sudo pacman -Syu' 'Upgrade installed repository packages.' \
     pq 'pacman -Qn'       'List installed repository packages.' \
     pl 'pacman -Qqen'     'List explicitly installed repository packages.'
-(( $+commands[yay] )) && _custom_alias Packages \
+(( $+commands[yay] )) && _custom-alias Packages \
     yi 'yay -S'       'Install a package through yay.' \
     yr 'yay -Rns'     'Remove packages, unneeded dependencies and saved configs through yay.' \
     ys 'yay -Ss'      'Search repositories and the AUR through yay.' \
@@ -485,18 +485,18 @@ _custom_alias Packages \
     yl 'pacman -Qqem' 'List explicitly installed foreign/AUR packages.'
 
 # Runs inside update's PTY (zsh -ic), so everything shares one sudo authentication.
-_update_body() {
+_update-body() {
     local rc=0 keepalive
     printf '\n=== Arch Update: %s ===\n\n' "$(date '+%Y-%m-%d %H:%M:%S')"
     sudo -v || { printf '\n--- Sudo authentication failed; stopping ---\n\n'; return 1 }
-    # Keep the sudo timestamp fresh so yay/env_save never re-prompt during a long pacman run.
+    # Keep the sudo timestamp fresh so yay/env-save never re-prompt during a long pacman run.
     ( while sleep 60; do sudo -n -v >/dev/null 2>&1 || exit; done ) &!
     keepalive=$!
     {
         printf '\n--- Updating via Pacman ---\n\n'
         if sudo pacman -Syu; then
             (( $+commands[yay] )) && { printf '\n--- Updating via Yay ---\n\n'; yay; rc=$? }
-            (( $+commands[env_save] )) && { printf '\n--- Saving Environment State ---\n\n'; env_save }
+            (( $+commands[env-save] )) && { printf '\n--- Saving Environment State ---\n\n'; env-save }
         else
             printf '\n--- Pacman update failed; stopping ---\n\n'; rc=1
         fi
@@ -506,7 +506,7 @@ _update_body() {
 
 # Terminal transcript → plain log: strip control sequences and pacman redraw noise, keeping
 # one line per completed package step.
-_update_log_clean() {
+_update-log-clean() {
     perl -ne '
         s/\r\n/\n/g; s/\e\].*?(?:\a|\e\\)//g; s/\e\[[0-?]*[ -\/]*[@-~]//g; s/\x08//g; s/\r/\n/g; s/\n\z//;
         my @lines = split /\n/, $_, -1; @lines = ("") unless @lines;
@@ -540,10 +540,10 @@ update() {
     mkdir -p $log_dir
     ln -sfn $log ~/update.log  # always the latest log
     # script gives the whole interactive update one PTY; tee shows the raw stream and logs a cleaned copy.
-    script -qefc 'zsh -ic _update_body' /dev/null 2>&1 | tee >(_update_log_clean > $log)
+    script -qefc 'zsh -ic _update-body' /dev/null 2>&1 | tee >(_update-log-clean > $log)
     update_rc=$pipestatus[1]
     # The completion refresh has to change *this* shell, so it runs outside the PTY.
-    { printf '\n--- Refreshing Shell Completions ---\n\n'; completion_refresh } > >(tee >(_update_log_clean >> $log)) 2>&1
+    { printf '\n--- Refreshing Shell Completions ---\n\n'; completion-refresh } > >(tee >(_update-log-clean >> $log)) 2>&1
     completion_rc=$?
     (( update_rc )) && return $update_rc
     return $completion_rc
@@ -554,8 +554,8 @@ search() {
     if (( $+commands[yay] )); then print '\n--- From AUR ---'; yay -Ss "$@"; fi
 }
 
-_custom_register Packages \
-    update 'Upgrade the system with pacman/yay, then run env_save if available.' \
+_custom-register Packages \
+    update 'Upgrade the system with pacman/yay, then run env-save if available.' \
     search 'Search official Arch repositories and the AUR when yay is available.'
 
 # === System ===================================================================
@@ -572,11 +572,11 @@ _wineprefix() {
     if (( $#prefixes )); then _describe 'Wine prefix' prefixes; else _message 'no ~/.wine-* prefixes found'; fi
 }
 compdef _wineprefix wineprefix
-_custom_register System wineprefix 'Select a named Wine prefix under ~/.wine-<name>.'
+_custom-register System wineprefix 'Select a named Wine prefix under ~/.wine-<name>.'
 
-_custom_alias System \
-    mount_windows   'sudo mount -t ntfs-3g UUID=369CE5FA9CE5B491 /mnt/windows' 'Mount the configured Windows NTFS volume.' \
-    unmount_windows 'sudo umount /mnt/windows'                                 'Unmount /mnt/windows.'
+_custom-alias System \
+    mount-windows   'sudo mount -t ntfs-3g UUID=369CE5FA9CE5B491 /mnt/windows' 'Mount the configured Windows NTFS volume.' \
+    unmount-windows 'sudo umount /mnt/windows'                                 'Unmount /mnt/windows.'
 
 diskcheck() {
     print '=== ROOT ===';                   findmnt /
@@ -585,24 +585,24 @@ diskcheck() {
     print '\n=== LVM PHYSICAL VOLUMES ==='; sudo pvs -o pv_name,pv_size,pv_free,vg_name
     print '\n=== PHYSICAL DISKS ===';       lsblk -d -o NAME,SIZE,MODEL,SERIAL
 }
-_custom_register System diskcheck 'Show root/home mounts, LVM state, and physical disks.'
+_custom-register System diskcheck 'Show root/home mounts, LVM state, and physical disks.'
 
 # === Applications & tools =====================================================
 
-[[ -f ~/trading-dashboard/main.py ]] && _custom_alias Applications td 'python ~/trading-dashboard/main.py &' 'Launch the Trading Dashboard.'
+[[ -f ~/trading-dashboard/main.py ]] && _custom-alias Applications td 'python ~/trading-dashboard/main.py &' 'Launch the Trading Dashboard.'
 
-(( $+commands[kitten] )) && _custom_alias Tools icat 'kitten icat' 'Display an image in Kitty.'
-[[ -f ~/.config/kitty/kitty.conf ]] && _custom_alias Tools vimk 'vim ~/.config/kitty/kitty.conf' 'Edit the Kitty configuration.'
-(( $+commands[btop] )) && _custom_alias Tools monitor btop 'Open btop system monitoring.'
-_custom_alias Tools \
+(( $+commands[kitten] )) && _custom-alias Tools icat 'kitten icat' 'Display an image in Kitty.'
+[[ -f ~/.config/kitty/kitty.conf ]] && _custom-alias Tools vimk 'vim ~/.config/kitty/kitty.conf' 'Edit the Kitty configuration.'
+(( $+commands[btop] )) && _custom-alias Tools monitor btop 'Open btop system monitoring.'
+_custom-alias Tools \
     view          'feh --auto-zoom --image-bg black --scale-down'        'View images scaled to fit on a black background.' \
     mouse-battery 'solaar show 2>/dev/null | grep "Battery:" | tail -1' 'Show the mouse battery level reported by Solaar.'
 
-tool_status() {
+tool-status() {
     local tool
     printf '%-10s %s\n' TOOL STATUS ---------- ------------------------------
-    for tool in atuin bat btop dust env_save eza fd fzf gh git kitten pacman rg tree uvx yay zoxide zsh; do
+    for tool in atuin bat btop dust env-save eza fd fzf gh git kitten pacman rg tree uvx yay zoxide zsh; do
         printf '%-10s %s\n' $tool ${commands[$tool]:-MISSING}
     done
 }
-_custom_register Tools tool_status 'Show installed paths or MISSING status for useful command-line tools.'
+_custom-register Tools tool-status 'Show installed paths or MISSING status for useful command-line tools.'

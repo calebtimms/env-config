@@ -18,7 +18,7 @@ PATCHES="$REPO/patches"
 
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
-BACKUP_ROOT="$HOME/.local/state/env_config-bootstrap/$STAMP"
+BACKUP_ROOT="$HOME/.local/state/env-config-bootstrap/$STAMP"
 
 
 # ---------------------------------------------------------------------------
@@ -56,21 +56,21 @@ confirm()
 }
 
 
-require_arch()
+require-arch()
 {
     [[ -f /etc/arch-release ]] \
         || die "This bootstrap is intended for Arch Linux."
 }
 
 
-require_not_root()
+require-not-root()
 {
     (( EUID != 0 )) \
         || die "Run bootstrap as your normal user, not root."
 }
 
 
-require_repo()
+require-repo()
 {
     [[ -d "$REPO" ]] \
         || die "Environment repository not found: $REPO"
@@ -86,7 +86,7 @@ require_repo()
 }
 
 
-backup_user_path()
+backup-user-path()
 {
     local target="$1"
     local rel
@@ -103,7 +103,7 @@ backup_user_path()
 }
 
 
-same_entry()
+same-entry()
 {
     local src="$1"
     local dest="$2"
@@ -125,7 +125,7 @@ same_entry()
 }
 
 
-system_safe_entry_differs()
+system-safe-entry-differs()
 {
     local src="$1"
     local target="$2"
@@ -148,7 +148,7 @@ system_safe_entry_differs()
 }
 
 
-backup_system_path()
+backup-system-path()
 {
     local target="$1"
     local rel="${target#/}"
@@ -200,7 +200,7 @@ gid=%g' \
 }
 
 
-restore_system_safe_entry()
+restore-system-safe-entry()
 {
     local src="$1"
     local rel="${src#$SYSTEM_CONFIG/}"
@@ -210,7 +210,7 @@ restore_system_safe_entry()
     local link_target
 
     # Nothing to do.
-    if ! system_safe_entry_differs "$src" "$target"; then
+    if ! system-safe-entry-differs "$src" "$target"; then
         return
     fi
 
@@ -219,7 +219,7 @@ restore_system_safe_entry()
         die "Refusing to replace directory with file: $target"
     fi
 
-    backup_system_path "$target" \
+    backup-system-path "$target" \
         || die "Could not back up $target"
 
     sudo install \
@@ -263,7 +263,7 @@ restore_system_safe_entry()
 }
 
 
-preview_system_safe_changes()
+preview-system-safe-changes()
 {
     local src
     local rel
@@ -274,7 +274,7 @@ preview_system_safe_changes()
     SYSTEM_SAFE_CHANGES=0
 
     mapfile -d '' -t candidates < <(
-        system_safe_candidates
+        system-safe-candidates
     )
 
     for src in "${candidates[@]}"; do
@@ -290,7 +290,7 @@ preview_system_safe_changes()
             continue
         fi
 
-        if system_safe_entry_differs "$src" "$target"; then
+        if system-safe-entry-differs "$src" "$target"; then
             printf 'DIFFER    /%s\n' "$rel"
             SYSTEM_SAFE_CHANGES=$((SYSTEM_SAFE_CHANGES + 1))
         fi
@@ -298,7 +298,7 @@ preview_system_safe_changes()
 }
 
 
-restore_system_safe()
+restore-system-safe()
 {
     local src
     local -a candidates=()
@@ -311,7 +311,7 @@ restore_system_safe()
     echo "The following saved system configuration differs:"
     echo
 
-    preview_system_safe_changes
+    preview-system-safe-changes
 
     if (( SYSTEM_SAFE_CHANGES == 0 )); then
         echo "No system-safe configuration changes are required."
@@ -330,21 +330,21 @@ restore_system_safe()
         || return
 
     mapfile -d '' -t candidates < <(
-        system_safe_candidates
+        system-safe-candidates
     )
 
     echo
 
     for src in "${candidates[@]}"; do
 
-        if system_safe_entry_differs \
+        if system-safe-entry-differs \
             "$src" \
             "/${src#$SYSTEM_CONFIG/}"
         then
             printf 'Restoring /%s\n' \
                 "${src#$SYSTEM_CONFIG/}"
 
-            restore_system_safe_entry "$src"
+            restore-system-safe-entry "$src"
         fi
 
     done
@@ -358,7 +358,7 @@ restore_system_safe()
     echo "Verifying restored system-safe configuration:"
     echo
 
-    preview_system_safe_changes
+    preview-system-safe-changes
 
     if (( SYSTEM_SAFE_CHANGES == 0 )); then
         echo
@@ -373,7 +373,7 @@ restore_system_safe()
 }
 
 
-restore_services()
+restore-services()
 {
     local saved_system="$STATE/systemd-system-enabled.txt"
     local saved_global_user="$STATE/systemd-global-user-enabled.txt"
@@ -429,7 +429,7 @@ restore_services()
     # System services
     # -----------------------------------------------------------------------
 
-    get_enabled_system_units "$tmp_system"
+    get-enabled-system-units "$tmp_system"
 
     comm -23 \
         "$saved_system" \
@@ -439,7 +439,7 @@ restore_services()
     while IFS= read -r unit; do
         [[ -n "$unit" ]] || continue
 
-        if system_unit_exists "$unit"; then
+        if system-unit-exists "$unit"; then
             system_enable+=("$unit")
         else
             system_missing+=("$unit")
@@ -454,7 +454,7 @@ restore_services()
 
     if [[ -f "$saved_global_user" ]]; then
 
-        if get_enabled_global_user_units "$tmp_global_user"; then
+        if get-enabled-global-user-units "$tmp_global_user"; then
 
             comm -23 \
                 "$saved_global_user" \
@@ -464,7 +464,7 @@ restore_services()
             while IFS= read -r unit; do
                 [[ -n "$unit" ]] || continue
 
-                if global_user_unit_exists "$unit"; then
+                if global-user-unit-exists "$unit"; then
                     global_user_enable+=("$unit")
                 else
                     global_user_missing+=("$unit")
@@ -484,7 +484,7 @@ restore_services()
 
     if [[ -f "$saved_user" ]]; then
 
-        if get_enabled_user_units "$tmp_user"; then
+        if get-enabled-user-units "$tmp_user"; then
 
             comm -23 \
                 "$saved_user" \
@@ -494,7 +494,7 @@ restore_services()
             while IFS= read -r unit; do
                 [[ -n "$unit" ]] || continue
 
-                if user_unit_exists "$unit"; then
+                if user-unit-exists "$unit"; then
                     user_enable+=("$unit")
                 else
                     user_missing+=("$unit")
@@ -697,7 +697,7 @@ restore_services()
 
     # System units
 
-    get_enabled_system_units "$verify_system"
+    get-enabled-system-units "$verify_system"
 
     echo "System units requested by bootstrap but still not enabled:"
     echo
@@ -711,7 +711,7 @@ restore_services()
 
     # Global user units
 
-    if get_enabled_global_user_units "$verify_global_user"; then
+    if get-enabled-global-user-units "$verify_global_user"; then
 
         echo
         echo "Global user units requested by bootstrap but still not enabled:"
@@ -728,7 +728,7 @@ restore_services()
     # Per-user units
 
     if [[ -f "$saved_user" ]] \
-        && get_enabled_user_units "$verify_user"
+        && get-enabled-user-units "$verify_user"
     then
         echo
         echo "Per-user units requested by bootstrap but still not enabled:"
@@ -778,7 +778,7 @@ restore_services()
 }
 
 
-flatpak_remote_url()
+flatpak-remote-url()
 {
     local scope="$1"
     local remote="$2"
@@ -803,7 +803,7 @@ flatpak_remote_url()
 }
 
 
-restore_flatpak_remotes()
+restore-flatpak-remotes()
 {
     local manifest="$PACKAGES/flatpak-remotes.txt"
 
@@ -828,7 +828,7 @@ restore_flatpak_remotes()
         [[ -n "$url" ]] || continue
 
         existing_url="$(
-            flatpak_remote_url "$scope" "$remote"
+            flatpak-remote-url "$scope" "$remote"
         )"
 
         if [[ -n "$existing_url" ]]; then
@@ -869,7 +869,7 @@ restore_flatpak_remotes()
 }
 
 
-flatpak_app_installed()
+flatpak-app-installed()
 {
     local scope="$1"
     local app="$2"
@@ -891,7 +891,7 @@ flatpak_app_installed()
 }
 
 
-install_flatpaks()
+install-flatpaks()
 {
     local manifest="$PACKAGES/flatpak.txt"
 
@@ -906,7 +906,7 @@ install_flatpaks()
         return
     fi
 
-    restore_flatpak_remotes
+    restore-flatpak-remotes
 
     info "Installing Flatpak applications"
 
@@ -916,7 +916,7 @@ install_flatpaks()
         [[ -n "$app" ]] || continue
         [[ -n "$remote" ]] || continue
 
-        if flatpak_app_installed "$scope" "$app"; then
+        if flatpak-app-installed "$scope" "$app"; then
             echo "$app already installed ($scope)"
             continue
         fi
@@ -953,14 +953,14 @@ install_flatpaks()
 }
 
 
-install_foreign_packages()
+install-foreign-packages()
 {
     local -a packages=()
     local package
 
     [[ -f "$PACKAGES/foreign.txt" ]] || return 0
 
-    bootstrap_yay || {
+    bootstrap-yay || {
         warn "Skipping foreign/AUR packages."
         return
     }
@@ -993,7 +993,7 @@ install_foreign_packages()
 # Packages
 # ---------------------------------------------------------------------------
 
-install_official_packages()
+install-official-packages()
 {
     local -a packages=()
 
@@ -1016,7 +1016,7 @@ install_official_packages()
 }
 
 
-bootstrap_yay()
+bootstrap-yay()
 {
     local helper_pkg="yay"
     local tmp
@@ -1069,14 +1069,14 @@ bootstrap_yay()
 }
 
 
-install_foreign_packages()
+install-foreign-packages()
 {
     local -a packages=()
     local package
 
     [[ -f "$PACKAGES/foreign.txt" ]] || return 0
 
-    bootstrap_yay || {
+    bootstrap-yay || {
         warn "Skipping foreign/AUR packages."
         return
     }
@@ -1114,7 +1114,7 @@ install_foreign_packages()
 }
 
 
-install_code_extensions()
+install-code-extensions()
 {
     [[ -f "$PACKAGES/code-extensions.txt" ]] || return
 
@@ -1138,12 +1138,12 @@ install_code_extensions()
 }
 
 
-install_packages()
+install-packages()
 {
-    install_official_packages
-    install_foreign_packages
-    install_flatpaks
-    install_code_extensions
+    install-official-packages
+    install-foreign-packages
+    install-flatpaks
+    install-code-extensions
 }
 
 
@@ -1151,7 +1151,7 @@ install_packages()
 # GNU Stow dotfiles
 # ---------------------------------------------------------------------------
 
-backup_stow_conflicts()
+backup-stow-conflicts()
 {
     local package="$1"
     local package_root="$DOTFILES/$package"
@@ -1183,7 +1183,7 @@ backup_stow_conflicts()
 
             warn "Backing up conflicting file: $target"
 
-            backup_user_path "$target"
+            backup-user-path "$target"
             rm -rf -- "$target"
         fi
 
@@ -1195,7 +1195,7 @@ backup_stow_conflicts()
 }
 
 
-restore_dotfiles()
+restore-dotfiles()
 {
     local package
     local name
@@ -1212,7 +1212,7 @@ restore_dotfiles()
 
         echo "$name"
 
-        backup_stow_conflicts "$name"
+        backup-stow-conflicts "$name"
 
         stow \
             --dir="$DOTFILES" \
@@ -1227,7 +1227,7 @@ restore_dotfiles()
 # Vim plugins
 # ---------------------------------------------------------------------------
 
-restore_vim_plugins()
+restore-vim-plugins()
 {
     local inventory="$STATE/vim-plugin-git.txt"
 
@@ -1292,7 +1292,7 @@ restore_vim_plugins()
             git -C "$target" checkout --detach "$commit"
         else
             # Keep the plugin on its saved branch while pinning it to
-            # the exact commit recorded by env_save.
+            # the exact commit recorded by env-save.
             git -C "$target" checkout -B "$branch" "$commit"
         
             # Restore upstream tracking when that branch exists on origin.
@@ -1329,7 +1329,7 @@ restore_vim_plugins()
 # Saved user configuration
 # ---------------------------------------------------------------------------
 
-restore_user_tree()
+restore-user-tree()
 {
     local src_root="$1"
 
@@ -1353,7 +1353,7 @@ restore_user_tree()
             then
                 warn "Backing up conflicting path: $target"
 
-                backup_user_path "$target"
+                backup-user-path "$target"
                 rm -rf -- "$target"
             fi
 
@@ -1363,13 +1363,13 @@ restore_user_tree()
 
         if [[ -e "$target" || -L "$target" ]]; then
 
-            if same_entry "$src" "$target"; then
+            if same-entry "$src" "$target"; then
                 continue
             fi
 
             warn "Backing up conflicting file: $target"
 
-            backup_user_path "$target"
+            backup-user-path "$target"
             rm -rf -- "$target"
         fi
 
@@ -1386,7 +1386,7 @@ restore_user_tree()
 }
 
 
-restore_user_config()
+restore-user-config()
 {
     info "Restoring saved user configuration"
 
@@ -1397,7 +1397,7 @@ restore_user_config()
 
     confirm "Restore user configuration?" || return
 
-    restore_user_tree "$USER_CONFIG"
+    restore-user-tree "$USER_CONFIG"
     
     if [[ -d "$HOME/.ssh" ]]; then
         chmod 700 "$HOME/.ssh"
@@ -1413,7 +1413,7 @@ restore_user_config()
 # Safe system configuration restore
 # ---------------------------------------------------------------------------
 
-system_safe_candidates()
+system-safe-candidates()
 {
     local rel
     local src
@@ -1463,7 +1463,7 @@ system_safe_candidates()
 
 
     # systemd's /etc/systemd/system and /etc/systemd/user trees need
-    # special handling. env_save also captures enablement/alias symlinks
+    # special handling. env-save also captures enablement/alias symlinks
     # here, and those should NOT be blindly transplanted.
     for rel in \
         "etc/systemd/system" \
@@ -1488,7 +1488,7 @@ system_safe_candidates()
 # systemd service restoration
 # ---------------------------------------------------------------------------
 
-system_unit_exists()
+system-unit-exists()
 {
     local unit="$1"
 
@@ -1502,7 +1502,7 @@ system_unit_exists()
 }
 
 
-user_unit_exists()
+user-unit-exists()
 {
     local unit="$1"
 
@@ -1516,7 +1516,7 @@ user_unit_exists()
 }
 
 
-get_enabled_system_units()
+get-enabled-system-units()
 {
     local output="$1"
 
@@ -1530,7 +1530,7 @@ get_enabled_system_units()
 }
 
 
-get_enabled_global_user_units()
+get-enabled-global-user-units()
 {
     local output="$1"
 
@@ -1545,7 +1545,7 @@ get_enabled_global_user_units()
 }
 
 
-get_enabled_user_units()
+get-enabled-user-units()
 {
     local output="$1"
     local tmp_effective
@@ -1567,7 +1567,7 @@ get_enabled_user_units()
         return 1
     fi
 
-    if ! get_enabled_global_user_units "$tmp_global"; then
+    if ! get-enabled-global-user-units "$tmp_global"; then
         rm -f "$tmp_effective" "$tmp_global"
         return 1
     fi
@@ -1581,7 +1581,7 @@ get_enabled_user_units()
 }
 
 
-global_user_unit_exists()
+global-user-unit-exists()
 {
     local unit="$1"
 
@@ -1599,7 +1599,7 @@ global_user_unit_exists()
 # System configuration review
 # ---------------------------------------------------------------------------
 
-review_system_config()
+review-system-config()
 {
     local src
     local rel
@@ -1685,7 +1685,7 @@ review_system_config()
 }
 
 
-review_services()
+review-services()
 {
     local tmp_system
     local tmp_user
@@ -1732,15 +1732,9 @@ review_services()
 
     if [[ -f "$STATE/systemd-user-enabled.txt" ]]; then
 
-        if systemctl --user list-unit-files \
-            --state=enabled \
-            --no-legend \
-            --no-pager \
-            2>/dev/null \
-            | awk '{print $1}' \
-            | LC_ALL=C sort \
-            > "$tmp_user"
-        then
+        # Per-user only, like the saved state: globally enabled user units
+        # would otherwise show up as drift.
+        if get-enabled-user-units "$tmp_user"; then
             echo "Saved user units not currently enabled:"
             echo
 
@@ -1767,10 +1761,10 @@ review_services()
 }
 
 
-review_environment()
+review-environment()
 {
-    review_system_config
-    review_services
+    review-system-config
+    review-services
 
     echo
     echo "No system configuration was modified."
@@ -1815,9 +1809,9 @@ EOF
 # Main
 # ---------------------------------------------------------------------------
 
-require_arch
-require_not_root
-require_repo
+require-arch
+require-not-root
+require-repo
 
 (( $# <= 1 )) || {
     usage
@@ -1829,40 +1823,40 @@ ACTION="${1:-help}"
 case "$ACTION" in
 
     packages)
-        install_packages
+        install-packages
         ;;
 
     dotfiles)
-        restore_dotfiles
+        restore-dotfiles
         ;;
 
     vim)
-        restore_vim_plugins
+        restore-vim-plugins
         ;;
 
     user)
-        restore_user_config
+        restore-user-config
         ;;
 
 
     system-safe)
-        restore_system_safe
+        restore-system-safe
         ;;
 
     services)
-        restore_services
+        restore-services
         ;;
 
     review)
-        review_environment
+        review-environment
         ;;
 
     all)
-        install_packages
-        restore_dotfiles
-        restore_vim_plugins
-        restore_user_config
-        review_environment
+        install-packages
+        restore-dotfiles
+        restore-vim-plugins
+        restore-user-config
+        review-environment
         ;;
 
     help|-h|--help)

@@ -1,2 +1,2 @@
-  PV             VG      Fmt  Attr PSize  PFree
-  /dev/nvme0n1p2 arch_vg lvm2 a--  <3.64t    0 
+  VG      Fmt  Attr PSize  PFree PV            
+  arch_vg lvm2 a--  <3.64t    0  /dev/disk/by-id/nvme-eui.002538a4514042df-part2

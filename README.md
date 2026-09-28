@@ -1,6 +1,6 @@
 # Arch Environment Configuration
 
-# env_config
+# env-config
 
 Reproducible configuration, environment backup, and recovery tooling for my
 Arch Linux workstation.
@@ -38,10 +38,12 @@ Information that describes what the working system looked like:
 - LVM layout
 - Btrfs subvolumes
 - PCI/USB hardware
+- host, locale, and time settings
 - bootloader state
 - Secure Boot state
 - systemd state
 - kernel command line
+- KDE display layout and KWin window-position overrides
 - Vim plugin commits
 - development-tool inventories
 
@@ -78,7 +80,7 @@ blindly restored:
 # Repository layout
 
 ```text
-env_config/
+env-config/
 ├── README.md
 │
 ├── dotfiles/
@@ -90,6 +92,7 @@ env_config/
 ├── packages/
 │   ├── official.txt
 │   ├── foreign.txt
+│   ├── all-versioned.txt   exact versions, reference only; not installed from
 │   ├── flatpak.txt
 │   ├── flatpak-remotes.txt
 │   └── code-extensions.txt
@@ -99,10 +102,11 @@ env_config/
 │
 ├── scripts/
 │   ├── bootstrap
-│   └── env_save
+│   └── env-save
 │
 ├── state/
-│   └── ...
+│   ├── ...
+│   └── user/          reference-only KDE/KWin state; not restored
 │
 ├── system/
 │   ├── etc/
@@ -112,7 +116,7 @@ env_config/
 └── user/
     ├── .config/
     ├── .local/
-    └── .ssh/
+    └── .ssh/          only when ~/.ssh/config exists
 ```
 
 ---
@@ -122,13 +126,23 @@ env_config/
 Run:
 
 ```bash
-env_save
+env-save
 ```
 
 This updates the package manifests, selected configuration, plugin inventory,
 system state, and reconstruction metadata.
 
-`env_save` is intended to be idempotent:
+`~/.zshrc` puts `scripts/` on `PATH`, so `env-save` and `bootstrap` run from
+any directory.
+
+`env-save --no-root` skips sudo. The root-only captures (`system/`, `blkid`,
+`efibootmgr`, Btrfs subvolumes and filesystems, and LVM state) are then left
+exactly as last saved.
+
+Both scripts operate on `~/env-config` unless `ENV_CONFIG_REPO` points
+elsewhere.
+
+`env-save` is intended to be idempotent:
 
 > Running it twice without meaningfully changing the machine should produce
 > no Git diff.
@@ -156,8 +170,13 @@ git push
 
 # Package updates
 
-My normal Arch update workflow ultimately calls `env_save` after the package
-update completes.
+The `update` Zsh command runs the whole update under one sudo session:
+`sudo pacman -Syu`, then `yay` (when installed), then `env-save`, then a shell
+completion refresh. If the Pacman upgrade fails, `yay` and `env-save` are
+skipped.
+
+Each run is logged to `~/.updates/update.<timestamp>.log`, and `~/update.log`
+always links to the latest log.
 
 Because Arch does not support partial upgrades, the package bootstrap also
 performs a full Pacman system upgrade while restoring explicitly installed
@@ -205,7 +224,7 @@ After installing a minimal working Arch environment, creating my normal user,
 establishing networking, and restoring GitHub SSH access:
 
 ```bash
-git clone git@github.com:calebtimms/env_config.git ~/env-config
+git clone git@github.com:calebtimms/env-config.git ~/env-config
 
 cd ~/env-config
 ```
@@ -276,13 +295,14 @@ For each Git-managed plugin, the saved state includes:
 Plugins are restored to their exact saved commit while remaining on their
 saved branch.
 
-The local Vim Obsession compatibility modification is preserved separately as:
+A plugin saved with local modifications (`DIRTY` in the inventory) needs a
+matching `patches/vim-<plugin>.patch`. Bootstrap applies it after checkout and
+stops if the patch is missing or doesn't apply cleanly. Currently the only one
+is the Vim Obsession compatibility modification:
 
 ```text
 patches/vim-obsession.patch
 ```
-
-and reapplied during a fresh reconstruction.
 
 ---
 
@@ -309,7 +329,7 @@ Existing differing paths are backed up first.
 Backups are stored beneath:
 
 ```text
-~/.local/state/env_config-bootstrap/<timestamp>/
+~/.local/state/env-config-bootstrap/<timestamp>/
 ```
 
 SSH private keys and other secrets are intentionally excluded from this
@@ -347,7 +367,7 @@ Examples of configuration that may be restored automatically include:
 /etc/NetworkManager/conf.d
 /etc/NetworkManager/dispatcher.d
 
-/etc/systemd/*/*.conf.d
+/etc/systemd/*.conf.d
 
 /etc/security/limits.d
 /etc/ssh/sshd_config.d
@@ -355,9 +375,14 @@ Examples of configuration that may be restored automatically include:
 /usr/local/bin
 ```
 
+Custom unit files and drop-ins under `/etc/systemd/system` and
+`/etc/systemd/user` are restored as well, but the enablement symlinks there are
+not; the services phase handles enablement.
+
 Existing files are backed up before replacement.
 
-No services are automatically restarted.
+`systemctl daemon-reload` runs afterwards. No services are automatically
+restarted.
 
 ---
 
@@ -392,7 +417,7 @@ The saved default system target is also restored when necessary.
 Changes made by the service phase are recorded under:
 
 ```text
-~/.local/state/env_config-bootstrap/<timestamp>/services/
+~/.local/state/env-config-bootstrap/<timestamp>/services/
 ```
 
 ---
@@ -406,10 +431,14 @@ Changes made by the service phase are recorded under:
 This performs a read-only comparison between the reconstructed machine and the
 saved environment.
 
-It checks selected system configuration, systemd enablement, and the default
-target.
+It compares every saved file under `system/` against the live machine,
+including critical files such as `fstab` and the EFI loader configuration that
+are never restored automatically. EFI entries are skipped when `/efi` is not
+mounted.
 
-No configuration is modified.
+It then compares saved and currently enabled system and per-user units.
+
+It needs sudo to read protected paths. No configuration is modified.
 
 ---
 
@@ -419,7 +448,9 @@ No configuration is modified.
 ./scripts/bootstrap all
 ```
 
-The aggregate action is intentionally conservative.
+The aggregate action is intentionally conservative. It runs `packages`,
+`dotfiles`, `vim`, `user`, and then `review`. It never runs `system-safe` or
+`services`.
 
 Critical system/storage/EFI restoration should remain an explicit guided
 operation rather than something triggered accidentally by `bootstrap all`.
@@ -457,13 +488,21 @@ Useful reference files include:
 ```text
 state/lsblk.txt
 state/blkid.txt
+state/findmnt.txt
 
 state/lvm-pvs.txt
 state/lvm-vgs.txt
 state/lvm-lvs.txt
 
 state/btrfs-subvolumes.txt
+state/btrfs-filesystems.txt
 ```
+
+Kernel disk names (`nvme0n1`, `sda`) depend on probe order and can swap between
+boots, so these files never record them. `lsblk`, `blkid`, and the LVM files
+name disks and partitions by their `/dev/disk/by-id` path (for example
+`/dev/disk/by-id/nvme-eui.002538a4514042df-part2`), and `findmnt.txt` uses
+filesystem UUIDs. `/dev/mapper` names are already stable and are kept.
 
 On a reconstructed system inspect:
 
@@ -639,7 +678,7 @@ such as the EFI System Partition.
 
 # Reference-only development inventories
 
-`env_save` may also record development-tool inventories such as:
+`env-save` may also record development-tool inventories such as:
 
 ```text
 cargo-installed.txt
@@ -661,7 +700,7 @@ ecosystem has its own versioning and environment semantics.
 Any user/system configuration replaced by bootstrap is backed up beneath:
 
 ```text
-~/.local/state/env_config-bootstrap/<timestamp>/
+~/.local/state/env-config-bootstrap/<timestamp>/
 ```
 
 Possible sections include:
@@ -700,7 +739,7 @@ authentication material.
 After reconstruction:
 
 ```bash
-env_save
+env-save
 
 cd ~/env-config
 git status --short

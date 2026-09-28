@@ -19,7 +19,7 @@ mkdir -p \
 # Helpers
 # ---------------------------------------------------------------------------
 
-run_if_exists()
+run-if-exists()
 {
     local command_name="$1"
     local output="$2"
@@ -33,7 +33,7 @@ run_if_exists()
 }
 
 
-capture_root_file()
+capture-root-file()
 {
     local src="$1"
     local dest="$SYSTEM/${src#/}"
@@ -50,7 +50,7 @@ capture_root_file()
 }
 
 
-capture_root_tree()
+capture-root-tree()
 {
     local src="$1"
     local dest="$SYSTEM/${src#/}"
@@ -97,7 +97,7 @@ capture_root_tree()
 }
 
 
-capture_user_tree()
+capture-user-tree()
 {
     local src="$1"
     local rel="${src#$HOME/}"
@@ -115,7 +115,7 @@ capture_user_tree()
 }
 
 
-capture_user_file()
+capture-user-file()
 {
     local src="$1"
     local rel="${src#$HOME/}"
@@ -131,7 +131,7 @@ capture_user_file()
 }
 
 
-capture_user_state_file()
+capture-user-state-file()
 {
     local src="$1"
     local rel="${src#$HOME/}"
@@ -147,7 +147,7 @@ capture_user_state_file()
 }
 
 
-capture_user_state_tree()
+capture-user-state-tree()
 {
     local src="$1"
     local rel="${src#$HOME/}"
@@ -164,7 +164,7 @@ capture_user_state_tree()
 }
 
 
-capture_git_repo_inventory()
+capture-git-repo-inventory()
 {
     local output="$1"
     shift
@@ -229,12 +229,41 @@ capture_git_repo_inventory()
 }
 
 
+# Rewrite kernel disk/partition names (/dev/nvme0n1p2, /dev/sda1), which
+# depend on probe order and can swap between boots, to their stable
+# /dev/disk/by-id paths. Other paths, such as /dev/mapper/*, pass through.
+stable-device-names()
+{
+    awk '
+        NR == FNR {
+            split($0, f, "[ ]")
+            if (f[2] != "" && (f[3] == "disk" || f[3] == "part"))
+                byid[f[1]] = "/dev/disk/by-id/" f[2]
+            next
+        }
+        {
+            line = $0
+            out = ""
+            while (match(line, /\/dev\/[A-Za-z0-9_.-]+/)) {
+                dev = substr(line, RSTART, RLENGTH)
+                out = out substr(line, 1, RSTART - 1) ((dev in byid) ? byid[dev] : dev)
+                line = substr(line, RSTART + RLENGTH)
+            }
+            print out line
+        }' <(lsblk --raw --noheadings --paths --output NAME,ID-LINK,TYPE) -
+}
+
+
 # ---------------------------------------------------------------------------
 # Pacman / package state
 # ---------------------------------------------------------------------------
 
 pacman -Qqen | LC_ALL=C sort > "$PACKAGES/official.txt"
 pacman -Qqem | LC_ALL=C sort > "$PACKAGES/foreign.txt"
+
+# Exact version of every installed package, for reference and rollback.
+# Bootstrap installs from official.txt/foreign.txt only.
+pacman -Q | LC_ALL=C sort > "$PACKAGES/all-versioned.txt"
 
 # ---------------------------------------------------------------------------
 # Flatpak
@@ -406,9 +435,22 @@ timedatectl show \
 lsblk \
     --raw \
     --noheadings \
+    --paths \
     --output NAME,SIZE,TYPE,FSTYPE,FSVER,LABEL,UUID,PARTUUID \
+    | stable-device-names \
     | LC_ALL=C sort \
     > "$STATE/lsblk.txt"
+
+# Mounted real filesystems, identified by UUID because kernel device names
+# (nvme0n1 / nvme1n1) can swap between boots. Transient mounts are skipped.
+findmnt \
+    --real \
+    --list \
+    --noheadings \
+    --output TARGET,FSTYPE,UUID,FSROOT,OPTIONS \
+    | grep -vE '^/(run|mnt|media)(/|[[:space:]])' \
+    | LC_ALL=C sort \
+    > "$STATE/findmnt.txt"
 
 # Basic PCI hardware inventory; does not require kernel module metadata.
 lspci -nn > "$STATE/lspci.txt" 2>&1 || true
@@ -428,6 +470,16 @@ lsusb \
 # ---------------------------------------------------------------------------
 
 bootctl status > "$STATE/bootctl.txt" 2>&1 || true
+
+if command -v sbctl >/dev/null 2>&1; then
+    # Only the meaningful Secure Boot state; the rest of the output varies.
+    sbctl status 2>/dev/null \
+        | grep -E '^(Installed|Setup Mode|Secure Boot):' \
+        > "$STATE/sbctl-status.txt" \
+        || true
+else
+    rm -f "$STATE/sbctl-status.txt"
+fi
 
 SBCTL_UNICODE=0 sbctl --json verify 2>/dev/null \
     | jq -S . \
@@ -450,6 +502,7 @@ fi
 if (( HAVE_SUDO )); then
 
     sudo blkid 2>/dev/null \
+        | stable-device-names \
         | LC_ALL=C sort \
         > "$STATE/blkid.txt" \
         || true
@@ -465,12 +518,27 @@ if (( HAVE_SUDO )); then
         | LC_ALL=C sort \
         > "$STATE/btrfs-subvolumes.txt"
 
+    # Layout only: the "used" figures change constantly.
+    sudo btrfs filesystem show \
+        | sed -E \
+            -e 's/[[:space:]]+FS bytes used .*$//' \
+            -e 's/ used [^ ]+ path / path /' \
+        > "$STATE/btrfs-filesystems.txt"
+
     if command -v pvs >/dev/null 2>&1; then
-        sudo pvs > "$STATE/lvm-pvs.txt" 2>&1 || true
+        # The PV name goes last so its longer by-id path doesn't misalign
+        # the other columns.
+        sudo pvs -o vg_name,pv_fmt,pv_attr,pv_size,pv_free,pv_name 2>&1 \
+            | stable-device-names \
+            > "$STATE/lvm-pvs.txt" \
+            || true
 
         sudo vgs > "$STATE/lvm-vgs.txt" 2>&1 || true
 
-        sudo lvs -a -o +devices > "$STATE/lvm-lvs.txt" 2>&1 || true
+        sudo lvs -a -o +devices 2>&1 \
+            | stable-device-names \
+            > "$STATE/lvm-lvs.txt" \
+            || true
     fi
 
 
@@ -478,74 +546,74 @@ if (( HAVE_SUDO )); then
     # Carefully selected system configuration
     # -----------------------------------------------------------------------
 
-    capture_root_file /etc/fstab
-    capture_root_file /etc/crypttab
+    capture-root-file /etc/fstab
+    capture-root-file /etc/crypttab
     
-    capture_root_file /etc/mkinitcpio.conf
+    capture-root-file /etc/mkinitcpio.conf
     
-    capture_root_file /etc/pacman.conf
-    capture_root_file /etc/makepkg.conf
+    capture-root-file /etc/pacman.conf
+    capture-root-file /etc/makepkg.conf
     
-    capture_root_file /etc/hostname
-    capture_root_file /etc/hosts
+    capture-root-file /etc/hostname
+    capture-root-file /etc/hosts
     
-    capture_root_file /etc/locale.conf
-    capture_root_file /etc/locale.gen
-    capture_root_file /etc/vconsole.conf
+    capture-root-file /etc/locale.conf
+    capture-root-file /etc/locale.gen
+    capture-root-file /etc/vconsole.conf
     
-    capture_root_file /etc/environment
+    capture-root-file /etc/environment
     
-    capture_root_file /etc/snapper/configs/root
+    capture-root-file /etc/snapper/configs/root
     
-    capture_root_file /efi/loader/loader.conf
+    capture-root-file /efi/loader/loader.conf
 
-    capture_root_file /etc/systemd/logind.conf
-    capture_root_file /etc/systemd/sleep.conf
-    capture_root_file /etc/systemd/resolved.conf
-    capture_root_file /etc/systemd/timesyncd.conf
-    capture_root_file /etc/systemd/journald.conf
+    capture-root-file /etc/systemd/logind.conf
+    capture-root-file /etc/systemd/sleep.conf
+    capture-root-file /etc/systemd/resolved.conf
+    capture-root-file /etc/systemd/timesyncd.conf
+    capture-root-file /etc/systemd/journald.conf
     
-    capture_root_file /etc/ssh/sshd_config
+    capture-root-file /etc/ssh/sshd_config
 
     # -----------------------------------------------------------------------
     # Local system configuration trees
     # -----------------------------------------------------------------------
     
-    capture_root_tree /etc/pacman.d/hooks
+    capture-root-tree /etc/pacman.d/hooks
     
-    capture_root_tree /etc/modprobe.d
-    capture_root_tree /etc/modules-load.d
+    capture-root-tree /etc/modprobe.d
+    capture-root-tree /etc/modules-load.d
     
-    capture_root_tree /etc/udev/rules.d
+    capture-root-tree /etc/udev/rules.d
     
-    capture_root_tree /etc/sysctl.d
-    capture_root_tree /etc/tmpfiles.d
+    capture-root-tree /etc/sysctl.d
+    capture-root-tree /etc/tmpfiles.d
     
-    capture_root_tree /etc/systemd/system
-    capture_root_tree /etc/systemd/user
+    capture-root-tree /etc/systemd/system
+    capture-root-tree /etc/systemd/user
     
-    capture_root_tree /etc/mkinitcpio.d
-    capture_root_tree /etc/kernel
+    capture-root-tree /etc/mkinitcpio.d
+    capture-root-tree /etc/kernel
     
-    capture_root_tree /etc/sddm.conf.d
+    capture-root-tree /etc/sddm.conf.d
     
-    capture_root_tree /etc/X11/xorg.conf.d
+    capture-root-tree /etc/X11/xorg.conf.d
     
-    capture_root_tree /etc/environment.d
+    capture-root-tree /etc/environment.d
     
-    capture_root_tree /etc/NetworkManager/conf.d
-    capture_root_tree /etc/NetworkManager/dispatcher.d
+    capture-root-tree /etc/NetworkManager/conf.d
+    capture-root-tree /etc/NetworkManager/dispatcher.d
 
-    capture_root_tree /etc/systemd/logind.conf.d
-    capture_root_tree /etc/systemd/sleep.conf.d
-    capture_root_tree /etc/systemd/resolved.conf.d
-    capture_root_tree /etc/systemd/timesyncd.conf.d
-    capture_root_tree /etc/systemd/journald.conf.d
+    capture-root-tree /etc/systemd/logind.conf.d
+    capture-root-tree /etc/systemd/sleep.conf.d
+    capture-root-tree /etc/systemd/resolved.conf.d
+    capture-root-tree /etc/systemd/timesyncd.conf.d
+    capture-root-tree /etc/systemd/journald.conf.d
     
-    capture_root_tree /etc/security/limits.d
-    capture_root_tree /etc/ssh/sshd_config.d
+    capture-root-tree /etc/security/limits.d
+    capture-root-tree /etc/ssh/sshd_config.d
 
-    capture_root_tree /usr/local/bin
+    capture-root-tree /usr/local/bin
 
     LOADER_ENTRIES_DEST="$SYSTEM/efi/loader/entries"
     
@@ -572,48 +640,48 @@ fi
 # -----------------------------------------------------------------------
 # User configuration trees/files
 # -----------------------------------------------------------------------
-capture_user_tree "$HOME/.config/systemd/user"
-capture_user_tree "$HOME/.config/environment.d"
-capture_user_tree "$HOME/.config/autostart"
+capture-user-tree "$HOME/.config/systemd/user"
+capture-user-tree "$HOME/.config/environment.d"
+capture-user-tree "$HOME/.config/autostart"
 
-capture_user_file "$HOME/.local/share/applications/sierra.desktop"
-capture_user_file "$HOME/.local/share/icons/sierra.png"
-capture_user_file "$HOME/.local/share/applications/trading-dashboard.desktop"
+capture-user-file "$HOME/.local/share/applications/sierra.desktop"
+capture-user-file "$HOME/.local/share/icons/sierra.png"
+capture-user-file "$HOME/.local/share/applications/trading-dashboard.desktop"
 
-capture_user_file "$HOME/.ssh/config"
+capture-user-file "$HOME/.ssh/config"
 
-capture_user_file "$HOME/.config/mimeapps.list"
+capture-user-file "$HOME/.config/mimeapps.list"
 
-capture_user_file "$HOME/.config/user-dirs.dirs"
-capture_user_file "$HOME/.config/user-dirs.locale"
+capture-user-file "$HOME/.config/user-dirs.dirs"
+capture-user-file "$HOME/.config/user-dirs.locale"
 
 # ---------------------------------------------------------------------------
 # KDE / Plasma user configuration
 # ---------------------------------------------------------------------------
 
-capture_user_file "$HOME/.config/kdeglobals"
+capture-user-file "$HOME/.config/kdeglobals"
 
-capture_user_file "$HOME/.config/kglobalshortcutsrc"
+capture-user-file "$HOME/.config/kglobalshortcutsrc"
 
-capture_user_file "$HOME/.config/kcminputrc"
-capture_user_file "$HOME/.config/kscreenlockerrc"
+capture-user-file "$HOME/.config/kcminputrc"
+capture-user-file "$HOME/.config/kscreenlockerrc"
 
-capture_user_file "$HOME/.config/kwinrc"
-capture_user_file "$HOME/.config/kwinrulesrc"
+capture-user-file "$HOME/.config/kwinrc"
+capture-user-file "$HOME/.config/kwinrulesrc"
 
-capture_user_file "$HOME/.config/plasma-localerc"
+capture-user-file "$HOME/.config/plasma-localerc"
 
-capture_user_file "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+capture-user-file "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
 
-capture_user_file "$HOME/.config/plasmanotifyrc"
-capture_user_file "$HOME/.config/plasmarc"
-capture_user_file "$HOME/.config/plasmashellrc"
+capture-user-file "$HOME/.config/plasmanotifyrc"
+capture-user-file "$HOME/.config/plasmarc"
+capture-user-file "$HOME/.config/plasmashellrc"
 
-capture_user_file "$HOME/.config/powerdevilrc"
-capture_user_file "$HOME/.config/powermanagementprofilesrc"
+capture-user-file "$HOME/.config/powerdevilrc"
+capture-user-file "$HOME/.config/powermanagementprofilesrc"
 
-capture_user_file "$HOME/.config/plasmaparc"
-capture_user_file "$HOME/.config/kded5rc" 
+capture-user-file "$HOME/.config/plasmaparc"
+capture-user-file "$HOME/.config/kded5rc" 
 
 KWIN_OUTPUT_SRC="$HOME/.config/kwinoutputconfig.json"
 KWIN_OUTPUT_DEST="$STATE/user/.config/kwinoutputconfig.json"
@@ -649,32 +717,32 @@ fi
 
 rm -f "$STATE/user/.config/kde.org/kwin.conf"
 
-capture_user_state_tree "$HOME/.config/kdedefaults"
+capture-user-state-tree "$HOME/.config/kdedefaults"
 
-capture_user_file "$HOME/.config/spectaclerc"
+capture-user-file "$HOME/.config/spectaclerc"
 
 # ---------------------------------------------------------------------------
 # Locally installed KDE / KWin extensions
 # ---------------------------------------------------------------------------
 
-capture_user_tree "$HOME/.local/share/kwin/scripts"
-capture_user_tree "$HOME/.local/share/kwin/effects"
-capture_user_tree "$HOME/.local/share/plasma/plasmoids"
+capture-user-tree "$HOME/.local/share/kwin/scripts"
+capture-user-tree "$HOME/.local/share/kwin/effects"
+capture-user-tree "$HOME/.local/share/plasma/plasmoids"
 
 # ---------------------------------------------------------------------------
 # Code OSS
 # ---------------------------------------------------------------------------
 
-capture_user_file "$HOME/.config/Code - OSS/User/settings.json"
-capture_user_file "$HOME/.config/Code - OSS/User/keybindings.json"
+capture-user-file "$HOME/.config/Code - OSS/User/settings.json"
+capture-user-file "$HOME/.config/Code - OSS/User/keybindings.json"
 
-capture_user_tree "$HOME/.config/Code - OSS/User/snippets"
+capture-user-tree "$HOME/.config/Code - OSS/User/snippets"
 
 # ---------------------------------------------------------------------------
 # VIM Plugins
 # ---------------------------------------------------------------------------
 
-capture_git_repo_inventory \
+capture-git-repo-inventory \
     "$STATE/vim-plugin-git.txt" \
     "$HOME/.vim/pack"
 
@@ -682,14 +750,14 @@ capture_git_repo_inventory \
 # GTK Config
 # ---------------------------------------------------------------------------
 
-capture_user_file "$HOME/.config/gtk-3.0/settings.ini"
-capture_user_file "$HOME/.config/gtk-3.0/gtk.css"
+capture-user-file "$HOME/.config/gtk-3.0/settings.ini"
+capture-user-file "$HOME/.config/gtk-3.0/gtk.css"
 
-capture_user_file "$HOME/.config/gtk-4.0/settings.ini"
-capture_user_file "$HOME/.config/gtk-4.0/gtk.css"
+capture-user-file "$HOME/.config/gtk-4.0/settings.ini"
+capture-user-file "$HOME/.config/gtk-4.0/gtk.css"
 
 # GTK/XSettings integration
-capture_user_tree "$HOME/.config/xsettingsd"
+capture-user-tree "$HOME/.config/xsettingsd"
 
 # ---------------------------------------------------------------------------
 # Optional user-space development tools

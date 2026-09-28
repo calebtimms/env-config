@@ -1,28 +1,3 @@
-TARGET                                        SOURCE                           FSTYPE      OPTIONS
-/                                             /dev/mapper/arch_vg-root[/@]     btrfs       rw,relatime,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/@
-├─/tmp                                        tmpfs                            tmpfs       rw,nosuid,nodev,size=48209136k,nr_inodes=1048576,inode64,huge=advise,usrquota
-├─/dev                                        devtmpfs                         devtmpfs    rw,nosuid,size=48030780k,nr_inodes=12007695,mode=755,inode64,huge=advise
-│ ├─/dev/mqueue                               mqueue                           mqueue      rw,nosuid,nodev,noexec,relatime
-│ ├─/dev/hugepages                            hugetlbfs                        hugetlbfs   rw,nosuid,nodev,relatime,pagesize=2M
-│ ├─/dev/shm                                  tmpfs                            tmpfs       rw,nosuid,nodev,inode64,huge=advise,usrquota
-│ └─/dev/pts                                  devpts                           devpts      rw,nosuid,noexec,relatime,gid=5,mode=600,ptmxmode=000
-├─/sys                                        sysfs                            sysfs       rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/kernel/debug                         debugfs                          debugfs     rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/kernel/tracing                       tracefs                          tracefs     rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/kernel/config                        configfs                         configfs    rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/fs/fuse/connections                  fusectl                          fusectl     rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/kernel/security                      securityfs                       securityfs  rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/fs/cgroup                            cgroup2                          cgroup2     rw,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot,memory_hugetlb_accounting
-│ ├─/sys/fs/pstore                            none                             pstore      rw,nosuid,nodev,noexec,relatime
-│ ├─/sys/firmware/efi/efivars                 efivarfs                         efivarfs    rw,nosuid,nodev,noexec,relatime
-│ └─/sys/fs/bpf                               bpf                              bpf         rw,nosuid,nodev,noexec,relatime,mode=700
-├─/proc                                       proc                             proc        rw,nosuid,nodev,noexec,relatime
-│ └─/proc/sys/fs/binfmt_misc                  systemd-1                        autofs      rw,relatime,fd=43,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=33862
-│   └─/proc/sys/fs/binfmt_misc                binfmt_misc                      binfmt_misc rw,nosuid,nodev,noexec,relatime
-├─/run                                        tmpfs                            tmpfs       rw,nosuid,nodev,size=19283656k,nr_inodes=819200,mode=755,inode64,huge=advise
-│ ├─/run/credentials/systemd-journald.service none                             tmpfs       ro,nosuid,nodev,noexec,relatime,nosymfollow,size=1024k,nr_inodes=1024,mode=700,inode64,huge=advise,noswap
-│ ├─/run/credentials/@encrypted               tmpfs[/credentials/@encrypted]   tmpfs       ro,nosuid,nodev,noexec,nosymfollow,size=19283656k,nr_inodes=819200,mode=755,inode64,huge=advise
-│ └─/run/user/1000                            tmpfs                            tmpfs       rw,nosuid,nodev,relatime,size=9641824k,nr_inodes=2410456,mode=700,uid=1000,gid=982,inode64,huge=advise
-│   └─/run/user/1000/doc                      portal                           fuse.portal rw,nosuid,nodev,relatime,user_id=1000,group_id=982
-├─/home                                       /dev/mapper/arch_vg-root[/@home] btrfs       rw,relatime,ssd,discard=async,space_cache=v2,subvolid=257,subvol=/@home
-└─/efi                                        /dev/nvme1n1p1                   vfat        rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro
+/     btrfs 22f7ed40-17cc-405d-8548-6030021d28c3 /@     rw,relatime,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/@
+/efi  vfat  915D-8BC2                            /      rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=ascii,shortname=mixed,utf8,errors=remount-ro
+/home btrfs 22f7ed40-17cc-405d-8548-6030021d28c3 /@home rw,relatime,ssd,discard=async,space_cache=v2,subvolid=257,subvol=/@home
