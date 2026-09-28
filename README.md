@@ -136,7 +136,7 @@ system state, and reconstruction metadata.
 After saving:
 
 ```bash
-cd ~/env_config
+cd ~/env-config
 
 git diff
 git status --short
@@ -178,7 +178,7 @@ may upgrade already-installed packages in addition to installing missing ones.
 Bootstrap is run as the normal user, not as root.
 
 ```bash
-~/env_config/scripts/bootstrap help
+~/env-config/scripts/bootstrap help
 ```
 
 Main phases:
@@ -205,9 +205,9 @@ After installing a minimal working Arch environment, creating my normal user,
 establishing networking, and restoring GitHub SSH access:
 
 ```bash
-git clone git@github.com:calebtimms/env_config.git ~/env_config
+git clone git@github.com:calebtimms/env_config.git ~/env-config
 
-cd ~/env_config
+cd ~/env-config
 ```
 
 Then reconstruct the system in stages.
@@ -702,7 +702,7 @@ After reconstruction:
 ```bash
 env_save
 
-cd ~/env_config
+cd ~/env-config
 git status --short
 ```
 

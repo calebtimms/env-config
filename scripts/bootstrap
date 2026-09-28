@@ -7,7 +7,7 @@ set -euo pipefail
 # Paths
 # ---------------------------------------------------------------------------
 
-REPO="${ENV_CONFIG_REPO:-$HOME/env_config}"
+REPO="${ENV_CONFIG_REPO:-$HOME/env-config}"
 
 DOTFILES="$REPO/dotfiles"
 PACKAGES="$REPO/packages"

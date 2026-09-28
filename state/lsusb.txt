@@ -25,4 +25,5 @@ ID 291a:8308 Anker Anker USB-C Hub
 ID 291a:8308 Anker Anker USB-C Hub
 ID 291a:8308 Anker Anker USB-C Hub
 ID 291a:8308 Anker Anker USB-C Hub
+ID 3710:5504 Pulsar Pulsar LINK 2 Dongle
 ID cb10:2257 Keebio Quefrency Rev. 2

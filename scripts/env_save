@@ -2,7 +2,7 @@
 
 set -uo pipefail
 
-REPO="${ENV_CONFIG_REPO:-$HOME/env_config}"
+REPO="${ENV_CONFIG_REPO:-$HOME/env-config}"
 
 PACKAGES="$REPO/packages"
 STATE="$REPO/state"

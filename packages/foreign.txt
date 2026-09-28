@@ -1,3 +1,5 @@
+claude-code
+google-chrome
 lib32-giflib
 lib32-mpg123
 lib32-openal
