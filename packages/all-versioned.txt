@@ -3,6 +3,7 @@ aalib 1.4rc5-19
 abseil-cpp 20260817.0-2
 accountsservice 26.27.3-1
 acl 2.4.0-1
+ada 4.0.0-1
 adwaita-cursors 50.0-1
 adwaita-fonts 51.0-2
 adwaita-icon-theme 50.0-1
@@ -16,6 +17,7 @@ alsa-ucm-conf 1.2.16.1-1
 amd-ucode 20260916-1
 aom 3.15.1-1
 appstream 1.2.0-1
+appstream-glib 0.8.4-1
 appstream-qt 1.2.0-1
 archlinux-appstream-data 20260910-1
 archlinux-keyring 20260909-1
@@ -144,7 +146,7 @@ fmt 12.2.0-1
 fontconfig 2:2.18.3-2
 foomatic-db-engine 5:20200131-2
 frameworkintegration 6.30.0-1
-freecad 1.1.3-2
+freecad 1.1.4-1
 freeglut 3.8.0-1
 freerdp 2:3.31.1-1
 freetype2 2.14.3-1
@@ -158,6 +160,7 @@ gawk 5.4.1-1
 gc 8.2.12-1
 gcc 16.2.1+r23+gd564253eb6c8-1
 gcc-libs 16.2.1+r23+gd564253eb6c8-1
+gcovr 8.6-1
 gdb 17.2-1
 gdb-common 17.2-1
 gdbm 1.26-2
@@ -232,6 +235,7 @@ icoutils 0.32.3-4
 icu 78.3-1
 iio-sensor-proxy 3.9-1
 ijs 0.35-7
+imagemagick 7.1.2.32-1
 imath 3.2.3-1
 imlib2 1.12.7-3
 inetutils 2.8-1
@@ -561,6 +565,7 @@ liblangtag 0.6.8-1
 liblc3 1.1.3-2
 libldac 2.0.2.6-1
 libldap 2.7.1-1
+liblqr 0.4.3-1
 liblsan 16.2.1+r23+gd564253eb6c8-1
 libmad 0.15.1b-10
 libmakepkg-dropins 20-2
@@ -570,6 +575,7 @@ libmatio 1.5.30-1
 libmatroska 1.7.2-2
 libmbim 1.34.0-1
 libmd 1.2.0-1
+libmfx 23.2.2-6
 libmm-glib 1.24.2-1
 libmng 2.0.3-4
 libmnl 1.0.5-2
@@ -783,6 +789,7 @@ mediatek-mt7927-dkms 2.16-1
 mesa 1:26.2.3-1
 mesa-utils 9.0.0-7
 milou 6.7.5-1
+miniupnpc 2.3.3-3
 minizip 1:1.3.2-3
 mkinitcpio 42.1-1
 mkinitcpio-busybox 1.36.1-1
@@ -806,8 +813,12 @@ nftables 1:1.1.7-3
 ninja 1.13.2-3
 nlopt 2.11.0-2
 nmap 7.991-1
+node-gyp 13.0.2-1
+nodejs 26.10.0-1
+nodejs-nopt 10.0.1-1
 noto-fonts 1:2026.09.01-1
 noto-fonts-emoji 1:2.051-1
+npm 12.1.0-1
 npth 1.8-1
 nspr 4.40-1
 nss 3.130-1
@@ -967,6 +978,7 @@ python-cairo 1.29.1-1
 python-certifi 2026.07.22-1
 python-cffi 2.1.1-1
 python-charset-normalizer 3.5.1-1
+python-colorlog 6.10.0-1
 python-contourpy 1.4.0-1
 python-cryptography 50.0.1-1
 python-cycler 0.12.1-4
@@ -979,8 +991,10 @@ python-filelock 3.31.2-1
 python-fonttools 4.66.0-1
 python-gobject 3.56.3-1
 python-idna 3.20-1
+python-jinja 1:3.1.6-3
 python-kiwisolver 1.5.1-1
 python-lxml 6.1.3_1-1
+python-markupsafe 3.0.3-1
 python-matplotlib 3.11.2-1
 python-numpy 2.5.3-1
 python-packaging 26.3-1
@@ -993,6 +1007,7 @@ python-psutil 7.2.2-1
 python-pycparser 3.00-1
 python-pycups 2.0.4-4
 python-pygdbmi 0.11.0.0-6
+python-pygments 2.21.0-1
 python-pyparsing 3.3.3-1
 python-pyqt6 6.11.0-3
 python-pyqt6-3d 6.11.0-1
@@ -1076,6 +1091,7 @@ sdl2-compat 2.32.72-1
 sdl3 3.4.16-1
 sdl3_ttf 3.2.2-3
 sed 4.10-2
+semver 7.8.5-1
 serd 0.32.10-1
 shaderc 2026.3-1
 shadow 4.20.0.arch1-1
@@ -1086,6 +1102,7 @@ signon-plugin-oauth2 0.25-4
 signon-ui 0.17+20231016-4
 signond 8.61-4
 simde 0.8.2-1
+simdjson 1:4.6.11-1
 slang 2.3.3-4
 smartmontools 7.5-1
 smbclient 2:4.25.0-1
@@ -1113,6 +1130,7 @@ steam 1.0.0.87-3
 steam-devices 1.0.0.87-3
 stow 2.4.1-1
 sudo 1.9.17.p2-6
+sunshine-bin 2026.914.233613-1
 svt-av1 4.2.0-1
 syndication 6.30.0-1
 syntax-highlighting 6.30.0-1
