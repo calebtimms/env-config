@@ -16,9 +16,9 @@ alsa-topology-conf 1.2.5.1-4
 alsa-ucm-conf 1.2.16.1-1
 amd-ucode 20260916-1
 aom 3.15.1-1
-appstream 1.2.0-1
+appstream 1.2.1-1
 appstream-glib 0.8.4-1
-appstream-qt 1.2.0-1
+appstream-qt 1.2.1-1
 archlinux-appstream-data 20260910-1
 archlinux-keyring 20260909-1
 argon2 20190702-7
@@ -69,7 +69,7 @@ cdparanoia 10.2-10
 cfitsio 1:4.7.0-1
 cifs-utils 7.5-1
 clang 22.1.8-1
-claude-code 2.1.284-1
+claude-code 2.1.285-1
 clinfo 3.0.25.02.14-1
 clucene 2.3.3.4-17
 cmake 4.4.3-2
@@ -100,7 +100,7 @@ deno 2.9.7-1
 desktop-file-utils 0.28-1
 device-mapper 2.03.42-1
 diffutils 3.12-2
-discord 1:1.0.159-1
+discord 1:1.0.160-1
 discount 3.0.2.0-1
 discover 6.7.5-1
 dkms 3.4.3-2
@@ -137,9 +137,9 @@ fftw 3.3.11-1
 file 5.48-1
 filesystem 2025.10.12-1
 findutils 4.11.0-1
-firefox 156.0.1-1
+firefox 157.0-1
 flac 1.5.0-1
-flatpak 1:1.18.3-1
+flatpak 1:1.18.4-1
 flatpak-kcm 6.7.5-1
 flex 2.6.4-6
 fmt 12.2.0-1
@@ -148,7 +148,7 @@ foomatic-db-engine 5:20200131-2
 frameworkintegration 6.30.0-1
 freecad 1.1.4-1
 freeglut 3.8.0-1
-freerdp 2:3.31.1-1
+freerdp 2:3.32.1-1
 freetype2 2.14.3-1
 fribidi 1.0.17-1
 fuse-common 3.18.3-1
@@ -188,7 +188,7 @@ gnutls 3.8.13-3
 go 2:1.27.1-1
 gobject-introspection-runtime 1.86.0-2
 gocryptfs 2.6.1-1
-google-chrome 154.0.8037.57-1
+google-chrome 154.0.8037.92-1
 gperftools 2.18.1-1
 gpgme 2.2.0-1
 gpgmepp 2.2.0-1
@@ -391,7 +391,7 @@ lib32-libnm 1.58.1-2
 lib32-libogg 1.3.6-1
 lib32-libpciaccess 0.19-1
 lib32-libpipewire 1:1.6.9-1
-lib32-libpng 1.6.58-2
+lib32-libpng 1.6.59-1
 lib32-libpsl 0.21.5-1
 lib32-libpulse 17.0+r98+gb096704c0-1
 lib32-libsamplerate 0.2.2-3
@@ -434,7 +434,7 @@ lib32-openal-debug 1.25.2-2
 lib32-openssl 1:3.6.4-1
 lib32-opus 1.6.1-1
 lib32-p11-kit 0.26.5-1
-lib32-pcre2 10.48-1
+lib32-pcre2 10.49-1
 lib32-pipewire 1:1.6.9-1
 lib32-portaudio 1:19.7.0-3
 lib32-portaudio-debug 1:19.7.0-3
@@ -600,7 +600,7 @@ libnl 3.12.0-1
 libnm 1.58.1-1
 libnotify 0.8.8-1
 libnsl 2.0.1-2
-libntfs-3g 2026.9.18-1
+libntfs-3g 2026.9.28-1
 libnumbertext 1.0.11-3
 libnvme 1.16.2-2
 libobjc 16.2.1+r23+gd564253eb6c8-1
@@ -619,7 +619,7 @@ libpipewire 1:1.6.9-1
 libplacebo 7.360.1-6
 libplasma 6.7.5-1
 libplist 2.7.0-3
-libpng 1.6.58-2
+libpng 1.6.59-1
 libppd 2.1.1-2
 libproxy 0.5.12-1
 libpsl 0.21.5-2
@@ -636,7 +636,7 @@ libraw 0.22.2-1
 libraw1394 2.1.2-4
 libreoffice-fresh 26.8.0-2
 librevenge 0.0.6-1
-librsvg 2:2.62.3-1
+librsvg 2:2.62.4-1
 librsync 1:2.3.4-2
 libsamplerate 0.2.2-3
 libsasl 2.1.28-5
@@ -649,7 +649,7 @@ libsodium 1.0.22-1
 libsoup3 3.6.6-2
 libsoxr 0.1.3-5
 libspnav 1.2-1
-libsrtp 1:2.8.0-1
+libsrtp 1:2.8.1-1
 libssc 0.4.4-1
 libssh 0.12.2-1
 libssh2 1.11.1-7
@@ -823,7 +823,7 @@ npth 1.8-1
 nspr 4.40-1
 nss 3.130-1
 nss-mdns 0.15.1-2
-ntfs-3g 2026.9.18-1
+ntfs-3g 2026.9.28-1
 ntsync-autoload 1-1
 numactl 2.0.19-1
 nvidia-open 615.71.09-4
@@ -834,7 +834,7 @@ ocean-sound-theme 6.7.5-1
 ocl-icd 2.3.5-1
 onetbb 2023.1.0-1
 oniguruma 6.9.10-1
-openai-codex 0.158.0-1
+openai-codex 0.159.2-1
 openal 1.25.2-2
 opencascade 1:7.9.3-3
 opencore-amr 0.1.6-2
@@ -871,7 +871,7 @@ patch 2.8-1
 patchelf 0.19.1-1
 pciutils 3.15.0-1
 pcre 8.45-5
-pcre2 10.48-1
+pcre2 10.49-1
 pcsclite 2.5.2-1
 pdfio 1.6.5-1
 perl 5.42.2-2
@@ -988,7 +988,7 @@ python-defusedxml 0.7.1-8
 python-distro 1.9.0-4
 python-evdev 2.0.0-1
 python-filelock 3.31.2-1
-python-fonttools 4.66.0-1
+python-fonttools 4.66.1-1
 python-gobject 3.56.3-1
 python-idna 3.20-1
 python-jinja 1:3.1.6-3
