@@ -13,7 +13,7 @@ export MANROFFOPT='-c -rU0' MANPAGER='env VIM_MANPAGER=1 vim +MANPAGER --not-a-t
 
 # === Options & history ========================================================
 
-setopt autocd extendedglob interactivecomments typesetsilent prompt_subst no_beep
+setopt autocd extendedglob interactivecomments typesetsilent prompt_subst no_beep globdots
 HISTFILE=${HISTFILE:-$HOME/.zsh_history} HISTSIZE=1000000 SAVEHIST=1000000
 setopt share_history hist_ignore_dups hist_find_no_dups hist_reduce_blanks hist_verify extended_history
 
@@ -162,49 +162,83 @@ fi
 (( $+commands[atuin] )) && { export ATUIN_NOBIND=true; eval "$(atuin init zsh)" }
 
 # === Tab completion ===========================================================
-# Tab: a word containing ** → fzf; a word containing * ? or [ → list what the glob matches
-# (the line is never expanded, and ambiguity is listed, never cycled); otherwise → normal.
+# Tab: a word containing ** → fzf; a word containing * ? or [ → glob completion; otherwise → normal.
+# Glob completion never expands the line. The cursor acts as a trailing *, as in normal completion:
+# Tab fills in whatever every match has in common next, then lists the matches (never cycles).
+#   *.lat<Tab> → *.latest     .venv*/li<Tab> → .venv*/lib     Do*<Tab> → lists Documents Downloads
 # A glob in a parent component offers only children present under *every* matched parent:
-#   .venv*/li<Tab> → .venv*/lib     .venv*/lib64/<Tab> → list common children     Do*<Tab> → list
+#   .venv*/lib64/<Tab> → .venv*/lib64/python3.12/
+# Symlinks to directories count as directories (e.g. a venv's lib64 -> lib).
+# A leading ~ or ~name and $NAME/${NAME} are expanded first; command substitution never runs.
+# When nothing qualifies, a one-line message says why instead of Tab silently doing nothing.
+
+# REPLY=$1 with ~, ~name, $NAME and ${NAME} replaced by their values, quoted so that only the
+# glob characters actually typed stay special.
+_glob-expand-path() {
+    setopt localoptions extendedglob
+    local p=$1 head
+    if [[ $p == \~* ]]; then
+        head=${p%%/*}
+        if [[ $head == \~ ]]; then head=$HOME
+        elif (( $+nameddirs[${head#\~}] )); then head=$nameddirs[${head#\~}]
+        elif (( $+userdirs[${head#\~}] )); then head=$userdirs[${head#\~}]
+        fi
+        [[ $p == */* ]] && p=${(b)head}/${p#*/} || p=${(b)head}
+    fi
+    REPLY=${p//(#m)\$(\{[[:IDENT:]]##\}|[[:IDENT:]]##)/${(b)${(P)${${MATCH#\$}//[\{\}]/}}}}
+}
 
 _glob-list-completer() {
-    local dir leaf pattern parent match name
-    local -i nparents display_only
-    local -a parents dirs files
+    setopt localoptions extendedglob
+    local dir leaf base hit name tail REPLY
+    local -i nparents
+    local -a parents dirs files dir_words file_words match mbegin mend
     local -A count dir_count
-    if [[ $PREFIX == */* ]]; then dir=${PREFIX%/*} leaf=${PREFIX##*/}; else leaf=$PREFIX; fi
-    if [[ $dir == *[\*\?\[]* ]]; then
-        pattern=${dir/#\~\//$HOME/}
-        parents=(${~pattern}(N/))
-        nparents=$#parents
-        (( nparents )) || return 1
-        [[ $leaf == *[\*\?\[]* ]] && display_only=1 || leaf+='*'
-        for parent in $parents; do
-            pattern=${(b)parent}/$leaf
-            for match in ${~pattern}(N); do
-                name=${match:t}
-                (( count[$name]++ ))
-                [[ -d $match ]] && (( dir_count[$name]++ ))
-            done
-        done
-        for name in ${(k)count}; do
-            (( count[$name] == nparents )) || continue
-            (( dir_count[$name] == nparents )) && dirs+=($name) || files+=($name)
-        done
-    else
-        display_only=1
-        pattern=${PREFIX/#\~\//$HOME/}
-        for match in ${~pattern}(N); do
-            [[ -d $match ]] && dirs+=(${match:t}) || files+=(${match:t})
-        done
-    fi
-    (( $#dirs + $#files )) || return 1
-    local -a flags=(-Q)
-    if (( display_only )); then compstate[insert]=''; flags+=(-U); else compstate[insert]=unambiguous; fi
     compstate[list]='list force'
+    # parents: glob-quoted directory prefixes ending in / ('' for the current directory).
+    if [[ $PREFIX == */* ]]; then
+        dir=${PREFIX%/*} leaf=${PREFIX##*/}
+        _glob-expand-path $dir
+        if [[ $dir == *[\*\?\[]* ]]; then
+            parents=(${~REPLY}(N-/))
+            (( $#parents )) || { compadd -x "no directory matches ${dir//\%/%%}"; return 1 }
+            parents=(${(b)^parents}/)
+        else
+            parents=($REPLY/)
+        fi
+    else
+        leaf=$PREFIX parents=('')
+    fi
+    nparents=$#parents
+    for base in "${parents[@]}"; do
+        for hit in ${~base}${~leaf}*(N); do
+            name=${hit:t}
+            count[$name]=$(( ${count[$name]:-0} + 1 ))
+            [[ -d $hit ]] && dir_count[$name]=$(( ${dir_count[$name]:-0} + 1 ))
+        done
+    done
+    # Each surviving name completes to the word as typed plus the rest of the name after what the
+    # typed glob matched (*.lat + est), so the common part of those words is what Tab fills in.
+    for name in ${(ko)count}; do
+        (( $count[$name] == nparents )) || continue
+        [[ $name == (#b)${~leaf}(*) ]] && tail=$match[-1] || tail=
+        if (( ${dir_count[$name]:-0} == nparents )); then dirs+=($name) dir_words+=("$leaf${tail:+${(q)tail}}")
+        else files+=($name) file_words+=("$leaf${tail:+${(q)tail}}"); fi
+    done
+    if (( $#dirs + $#files == 0 )); then
+        if (( nparents > 1 )); then
+            compadd -x "no ${leaf//\%/%%}* under all $nparents directories matching ${dir//\%/%%}"
+        else
+            compadd -x "no match for ${PREFIX//\%/%%}*"
+        fi
+        return 1
+    fi
+    compstate[insert]=unambiguous
     compset -P '*/'
-    (( $#dirs )) && compadd $flags -S / -- ${(o)dirs}
-    (( $#files )) && compadd $flags -- ${(o)files}
+    # -Q: the words are already quoted. -2: keep identical words (every *.latest match completes to
+    # "*.latest") so each match is still listed, under its plain name (-d).
+    (( $#dirs )) && compadd -Q -J glob -2 -S / -d dirs -- $dir_words
+    (( $#files )) && compadd -Q -J glob -2 -d files -- $file_words
 }
 zle -C _glob-list-widget list-choices _glob-list-completer
 
