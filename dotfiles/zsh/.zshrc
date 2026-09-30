@@ -166,8 +166,8 @@ fi
 # Glob completion never expands the line. The cursor acts as a trailing *, as in normal completion:
 # Tab fills in whatever every match has in common next, then lists the matches (never cycles).
 #   *.lat<Tab> → *.latest     .venv*/li<Tab> → .venv*/lib     Do*<Tab> → lists Documents Downloads
-# A glob in a parent component offers only children present under *every* matched parent:
-#   .venv*/lib64/<Tab> → .venv*/lib64/python3.12/
+# A glob in a parent component offers every child found under any matched parent, as the glob
+# itself would expand:   */*/*rc*<Tab> → lists .vimrc .vimrc-orig .zshrc .zshrc-orig
 # Symlinks to directories count as directories (e.g. a venv's lib64 -> lib).
 # A leading ~ or ~name and $NAME/${NAME} are expanded first; command substitution never runs.
 # When nothing qualifies, a one-line message says why instead of Tab silently doing nothing.
@@ -217,17 +217,18 @@ _glob-list-completer() {
             [[ -d $hit ]] && dir_count[$name]=$(( ${dir_count[$name]:-0} + 1 ))
         done
     done
-    # Each surviving name completes to the word as typed plus the rest of the name after what the
-    # typed glob matched (*.lat + est), so the common part of those words is what Tab fills in.
+    # Every name found under any matched parent is offered, as the glob itself would expand; it counts
+    # as a directory only if it is one everywhere it appears. Each name completes to the word as typed
+    # plus the rest of the name after what the typed glob matched (*.lat + est), so the common part of
+    # those words is what Tab fills in.
     for name in ${(ko)count}; do
-        (( $count[$name] == nparents )) || continue
         [[ $name == (#b)${~leaf}(*) ]] && tail=$match[-1] || tail=
-        if (( ${dir_count[$name]:-0} == nparents )); then dirs+=($name) dir_words+=("$leaf${tail:+${(q)tail}}")
+        if (( ${dir_count[$name]:-0} == $count[$name] )); then dirs+=($name) dir_words+=("$leaf${tail:+${(q)tail}}")
         else files+=($name) file_words+=("$leaf${tail:+${(q)tail}}"); fi
     done
     if (( $#dirs + $#files == 0 )); then
         if (( nparents > 1 )); then
-            compadd -x "no ${leaf//\%/%%}* under all $nparents directories matching ${dir//\%/%%}"
+            compadd -x "no ${leaf//\%/%%}* under the $nparents directories matching ${dir//\%/%%}"
         else
             compadd -x "no match for ${PREFIX//\%/%%}*"
         fi
