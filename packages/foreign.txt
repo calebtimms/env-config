@@ -1,3 +1,4 @@
+blipnet
 claude-code
 google-chrome
 lib32-giflib
