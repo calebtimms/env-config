@@ -981,7 +981,7 @@ pybind11 3.1.0-1
 pyside6 6.11.2-2
 python 3.14.7-1
 python-attrs 26.1.0-1
-python-cairo 1.29.1-1
+python-cairo 1.29.2-1
 python-certifi 2026.07.22-1
 python-cffi 2.1.1-1
 python-charset-normalizer 3.5.1-1
@@ -1172,7 +1172,7 @@ tzdata 2026e-1
 uchardet 0.0.8-4
 udisks2 2.11.2-1
 unzip 6.0-23
-upower 1.91.4-1
+upower 1.91.5-1
 usbmuxd 1.1.1-4
 usbutils 019-1
 uthash 2.3.0-3

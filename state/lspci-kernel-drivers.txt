@@ -1,4 +1,3 @@
-lspci: Unable to load libkmod resources: error -2
 00:00.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Raphael/Granite Ridge Root Complex [1022:14d8]
 	Subsystem: ASUSTeK Computer Inc. Device [1043:8877]
 00:00.2 IOMMU [0806]: Advanced Micro Devices, Inc. [AMD] Raphael/Granite Ridge IOMMU [1022:14d9]

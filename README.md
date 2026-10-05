@@ -136,8 +136,8 @@ system state, and reconstruction metadata.
 any directory.
 
 `env-save --no-root` skips sudo. The root-only captures (`system/`, `blkid`,
-`efibootmgr`, Btrfs subvolumes and filesystems, and LVM state) are then left
-exactly as last saved.
+`bootctl`, `efibootmgr`, Btrfs subvolumes and filesystems, and LVM state) are
+then left exactly as last saved.
 
 Both scripts operate on `~/env-config` unless `ENV_CONFIG_REPO` points
 elsewhere.

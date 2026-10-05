@@ -131,6 +131,25 @@ capture-user-file()
 }
 
 
+# capture-user-file, minus lines matching an extended regex: bookkeeping keys
+# an application rewrites on its own, which never reflect a settings change.
+capture-user-file-without()
+{
+    local src="$1"
+    local pattern="$2"
+    local rel="${src#$HOME/}"
+    local dest="$REPO/user/$rel"
+
+    if [[ ! -f "$src" ]]; then
+        rm -f "$dest"
+        return
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    grep -vE "$pattern" "$src" > "$dest" || true
+}
+
+
 capture-user-state-file()
 {
     local src="$1"
@@ -251,6 +270,32 @@ stable-device-names()
             }
             print out line
         }' <(lsblk --raw --noheadings --paths --output NAME,ID-LINK,TYPE) -
+}
+
+
+# Drop the firmware's own BBS(...) boot entries (UEFI:CD/DVD Drive,
+# UEFI:Removable Device, UEFI:Network Device), which it adds and removes on
+# its own, from both the efibootmgr entry list and BootOrder.
+drop-firmware-boot-entries()
+{
+    awk '
+        { line[NR] = $0 }
+        /\tBBS\(/ { bbs[substr($0, 5, 4)] = 1 }
+        END {
+            for (i = 1; i <= NR; i++) {
+                $0 = line[i]
+                if (/^Boot[0-9A-F]{4}/) skip = (substr($0, 5, 4) in bbs)
+                else if (!/^[[:space:]]/) skip = 0
+                if (skip) continue
+                if (/^BootOrder: /) {
+                    n = split(substr($0, 12), ids, ",")
+                    $0 = "BootOrder:"; sep = " "
+                    for (j = 1; j <= n; j++)
+                        if (!(ids[j] in bbs)) { $0 = $0 sep ids[j]; sep = "," }
+                }
+                print
+            }
+        }'
 }
 
 
@@ -414,11 +459,11 @@ systemctl get-default > "$STATE/systemd-default-target.txt" 2>&1 || true
 # Basic system information
 # ---------------------------------------------------------------------------
 
-uname -a > "$STATE/uname.txt"
-
 cat /proc/cmdline > "$STATE/kernel-cmdline.txt"
 
-hostnamectl | grep -vE '^[[:space:]]*(Machine ID|Boot ID|Firmware Age):' > "$STATE/hostnamectl.txt" 2>&1 || true
+# The running kernel lags the installed linux package (already in
+# all-versioned.txt) until a reboot, so it is left out with the per-boot IDs.
+hostnamectl | grep -vE '^[[:space:]]*(Machine ID|Boot ID|Firmware Age|Kernel):' > "$STATE/hostnamectl.txt" 2>&1 || true
 
 localectl status > "$STATE/localectl.txt" 2>&1 || true
 
@@ -455,21 +500,18 @@ findmnt \
 # Basic PCI hardware inventory; does not require kernel module metadata.
 lspci -nn > "$STATE/lspci.txt" 2>&1 || true
 
-# Driver/module association. May report unavailable module metadata
-# immediately after a kernel package upgrade but before reboot.
-lspci -nnk > "$STATE/lspci-kernel-drivers.txt" 2>&1 || true
-
-lsusb \
-    | sed -E 's/^Bus [0-9]+ Device [0-9]+: //' \
-    | LC_ALL=C sort \
-    > "$STATE/lsusb.txt"
+# Bound drivers ("Kernel driver in use") come from sysfs. The candidate
+# "Kernel modules" lines need module metadata for the running kernel, which
+# a kernel upgrade removes until the next reboot, so they are left out.
+lspci -nnk 2>/dev/null \
+    | grep -v $'^\tKernel modules:' \
+    > "$STATE/lspci-kernel-drivers.txt" \
+    || true
 
 
 # ---------------------------------------------------------------------------
 # Boot environment
 # ---------------------------------------------------------------------------
-
-bootctl status > "$STATE/bootctl.txt" 2>&1 || true
 
 if command -v sbctl >/dev/null 2>&1; then
     # Only the meaningful Secure Boot state; the rest of the output varies.
@@ -507,8 +549,17 @@ if (( HAVE_SUDO )); then
         > "$STATE/blkid.txt" \
         || true
 
+    # Root can read the ESP, so no permission errors get spliced into the
+    # output. "Current Stub" is the booted UKI's systemd-stub: a running-system
+    # version that lags the systemd package until a reboot.
+    sudo bootctl status 2>/dev/null \
+        | grep -v 'Product: systemd-stub' \
+        > "$STATE/bootctl.txt" \
+        || true
+
     sudo efibootmgr -v 2>/dev/null \
         | grep -vE '^(BootCurrent|BootNext):' \
+        | drop-firmware-boot-entries \
         > "$STATE/efibootmgr.txt" \
         || true
 
@@ -661,7 +712,9 @@ capture-user-file "$HOME/.config/user-dirs.locale"
 
 capture-user-file "$HOME/.config/kdeglobals"
 
-capture-user-file "$HOME/.config/kglobalshortcutsrc"
+# _k_friendly_name is a display label KDE rewrites with whichever program last
+# saved the file (e.g. "KWin" vs "System Settings").
+capture-user-file-without "$HOME/.config/kglobalshortcutsrc" '^_k_friendly_name='
 
 capture-user-file "$HOME/.config/kcminputrc"
 capture-user-file "$HOME/.config/kscreenlockerrc"
@@ -788,7 +841,14 @@ if command -v pipx >/dev/null 2>&1; then
 fi
 
 if command -v npm >/dev/null 2>&1; then
-    npm --global ls --depth=0 > "$STATE/npm-global.txt" 2>&1 || true
+    # Only modules npm itself installed; pacman-owned ones (npm, node-gyp,
+    # semver, ...) are already in all-versioned.txt.
+    npm --global ls --depth=0 --parseable --long 2>/dev/null \
+        | tail -n +2 \
+        | while IFS=: read -r path module _; do
+            pacman -Qqo "$path" >/dev/null 2>&1 || printf '%s\n' "$module"
+        done \
+        > "$STATE/npm-global.txt"
 fi
 
 

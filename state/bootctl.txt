@@ -1,4 +1,3 @@
-Failed to read "/efi/EFI/systemd": Permission denied
 System:
       Firmware: UEFI 2.90 (American Megatrends 5.26)
  Firmware Arch: x64
@@ -38,7 +37,6 @@ Keyboard Layout: n/a (not reported by firmware)
   Current Entry: arch-linux.efi
 
 Current Stub:
-        Product: systemd-stub 262-1-arch
        Features: ✓ Stub reports loader partition information
                  ✓ Stub reports stub partition information
                  ✓ Stub reports network boot URL
@@ -57,11 +55,13 @@ Current Stub:
 
 Random Seed:
  System Token: set
-       Exists: Can't access /efi/loader/random-seed (Permission denied)
+       Exists: yes
 
 Available Boot Loaders on ESP:
           ESP: /efi (/dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2)
-         File: (can't access /efi: Permission denied)
+         File: ├─/efi//EFI/systemd/systemd-boot-fallbackx64.efi (systemd-boot 261.2-1-arch)
+               ├─/efi//EFI/systemd/systemd-bootx64.efi (systemd-boot 262-1-arch)
+               └─/efi//EFI/BOOT/BOOTX64.EFI (systemd-boot 262-1-arch)
 
 Boot Loaders Listed in EFI Variables:
         Title: Linux Boot Manager
@@ -69,6 +69,12 @@ Boot Loaders Listed in EFI Variables:
        Status: active, boot-order
     Partition: /dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2
          File: └─/efi//EFI/systemd/systemd-bootx64.efi
+
+        Title: Fallback Linux Boot Manager
+           ID: 0x0001
+       Status: active, boot-order
+    Partition: /dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2
+         File: └─/efi//EFI/systemd/systemd-boot-fallbackx64.efi
 
         Title: Windows Boot Manager
            ID: 0x0004
@@ -98,6 +104,22 @@ Boot Loaders Listed in EFI Variables:
            ID: 0x0000
        Status: active
     Partition: /dev/disk/by-partuuid/0c2b5876-9ebf-4f55-b39b-449f57920941
-         File: └─/efi//EFI/MicFailed to open '/efi/loader/loader.conf': Permission denied
-rosoft/Boot/bootmgfw.efi
+         File: └─/efi//EFI/Microsoft/Boot/bootmgfw.efi
 
+Boot Loader Entry Locations:
+          ESP: /efi (/dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2, $BOOT)
+       config: /efi//loader/loader.conf
+        token: arch
+
+Default Boot Loader Entry:
+         type: Boot Loader Specification Type #2 (UKI, .efi)
+        title: Arch Linux (7.2.8-arch1-2)
+           id: arch-linux.efi
+       source: /efi//EFI/Linux/arch-linux.efi (on the EFI System Partition)
+     sort-key: arch
+      version: 7.2.8-arch1-2
+        uname: 7.2.8-arch1-2
+        linux: /efi//EFI/Linux/arch-linux.efi
+      profile: 0
+      options: root=/dev/mapper/arch_vg-root rw rootflags=subvol=@ loglevel=3 quiet
+        extra: /efi//loader/credentials/nvpcr-anchor.eca696be7f0b421988fedc01093f298c.cred
