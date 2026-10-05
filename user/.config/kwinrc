@@ -18,6 +18,8 @@ rememberwindowpositionsEnabled=true
 
 [TabBox]
 DelayTime=0
+HighlightWindows=false
+ShowScreenMode=1
 
 [Tiling][7f63ff06-12e5-441f-a63f-2568565d08d4][7df627d4-c108-48e7-9fe2-b6c0d60a0bb8]
 padding=4

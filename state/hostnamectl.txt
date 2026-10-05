@@ -2,7 +2,7 @@
        Icon name: computer-desktop
          Chassis: desktop 🖥️
 Operating System: Arch Linux
-          Kernel: Linux 7.2.7-arch1-1
+          Kernel: Linux 7.2.8-arch1-1
     Architecture: x86-64
  Hardware Vendor: ASUS
   Hardware Model: ROG CROSSHAIR X870E HERO

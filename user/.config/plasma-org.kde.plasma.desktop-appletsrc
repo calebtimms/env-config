@@ -295,6 +295,12 @@ plugin=org.kde.plasma.weather
 DialogHeight=630
 DialogWidth=810
 
+[Containments][2][Applets][7][Applets][15][Configuration][Units]
+pressureUnit=5007
+speedUnit=9002
+temperatureUnit=6002
+visibilityUnit=2024
+
 [Containments][2][Applets][7][Applets][15][Configuration][WeatherStation]
 placeDisplayName=Beaverton, United States, US
 placeInfo=Beaverton, United States, US|5713376

@@ -1,1 +1,1 @@
-Linux Battleship 7.2.7-arch1-1 #1 SMP PREEMPT_DYNAMIC Mon, 21 Sep 2026 18:51:14 +0000 x86_64 GNU/Linux
+Linux Battleship 7.2.8-arch1-1 #1 SMP PREEMPT_DYNAMIC Thu, 01 Oct 2026 02:24:43 +0000 x86_64 GNU/Linux

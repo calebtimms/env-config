@@ -1,2 +1,5 @@
 [Applications][dev.lizardbyte.app.Sunshine]
 Seen=true
+ShowBadges=false
+ShowInHistory=false
+ShowPopups=false
