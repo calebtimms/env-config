@@ -84,6 +84,8 @@ stow
 sudo
 system-config-printer
 systemd-ukify
+tailscale
+tmux
 traceroute
 tree
 usbmuxd

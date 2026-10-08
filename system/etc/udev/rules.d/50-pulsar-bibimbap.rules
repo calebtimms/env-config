@@ -1,2 +1,7 @@
+# Pulsar mice/dongles (all modes) — allow the logged-in user, for WebHID updates
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3710", TAG+="uaccess"
+SUBSYSTEM=="usb",    ATTRS{idVendor}=="3710", TAG+="uaccess"
+
+# Previously from ChatGPT
 SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="3710", ATTRS{idProduct}=="5504", TAG+="uaccess"
 SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="3710", ATTRS{idProduct}=="7507", TAG+="uaccess"

@@ -32,7 +32,7 @@ Current Boot Loader:
                  ✓ Loader reports firmware keyboard layout
                  ✓ Loader measures SMBIOS information
       Partition: /dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2
-         Loader: └─/efi//EFI/systemd/systemd-bootx64.efi
+         Loader: └─/efi//EFI/systemd/systemd-boot-fallbackx64.efi
 Keyboard Layout: n/a (not reported by firmware)
   Current Entry: arch-linux.efi
 
@@ -113,12 +113,12 @@ Boot Loader Entry Locations:
 
 Default Boot Loader Entry:
          type: Boot Loader Specification Type #2 (UKI, .efi)
-        title: Arch Linux (7.2.8-arch1-2)
+        title: Arch Linux (7.2.9-arch1-1)
            id: arch-linux.efi
        source: /efi//EFI/Linux/arch-linux.efi (on the EFI System Partition)
      sort-key: arch
-      version: 7.2.8-arch1-2
-        uname: 7.2.8-arch1-2
+      version: 7.2.9-arch1-1
+        uname: 7.2.9-arch1-1
         linux: /efi//EFI/Linux/arch-linux.efi
       profile: 0
       options: root=/dev/mapper/arch_vg-root rw rootflags=subvol=@ loglevel=3 quiet

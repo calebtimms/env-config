@@ -54,7 +54,7 @@
 14:03.0 PCI bridge [0604]: ASMedia Technology Inc. ASM4242 PCIe Switch Downstream Port [1b21:2423] (rev 01)
 79:00.0 USB controller [0c03]: ASMedia Technology Inc. ASM4242 USB 3.2 xHCI Controller [1b21:2426] (rev 01)
 7a:00.0 USB controller [0c03]: ASMedia Technology Inc. ASM4242 USB 4 / Thunderbolt 3 Host Router [1b21:2425] (rev 01)
-7b:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Granite Ridge [Radeon Graphics] [1002:13c0] (rev c9)
+7b:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Granite Ridge [Radeon 610M] [1002:13c0] (rev c9)
 7b:00.1 Audio device [0403]: Advanced Micro Devices, Inc. [AMD/ATI] Radeon High Definition Audio Controller [1002:1640]
 7b:00.2 Encryption controller [1080]: Advanced Micro Devices, Inc. [AMD] Family 19h PSP/CCP [1022:1649]
 7b:00.3 USB controller [0c03]: Advanced Micro Devices, Inc. [AMD] Raphael/Granite Ridge USB 3.1 xHCI [1022:15b6]

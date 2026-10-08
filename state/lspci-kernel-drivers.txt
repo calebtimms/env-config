@@ -139,7 +139,7 @@
 7a:00.0 USB controller [0c03]: ASMedia Technology Inc. ASM4242 USB 4 / Thunderbolt 3 Host Router [1b21:2425] (rev 01)
 	Subsystem: ASMedia Technology Inc. Device [1b21:2421]
 	Kernel driver in use: thunderbolt
-7b:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Granite Ridge [Radeon Graphics] [1002:13c0] (rev c9)
+7b:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Granite Ridge [Radeon 610M] [1002:13c0] (rev c9)
 	Subsystem: ASUSTeK Computer Inc. Device [1043:8877]
 	Kernel driver in use: amdgpu
 7b:00.1 Audio device [0403]: Advanced Micro Devices, Inc. [AMD/ATI] Radeon High Definition Audio Controller [1002:1640]
