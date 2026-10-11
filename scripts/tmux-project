@@ -1,0 +1,81 @@
+#!/usr/bin/env zsh
+# tmux-project [session | directory | zoxide query...]: go to a project's tmux session, creating it if needed.
+#   With no argument (prefix g, or tp), pick with fzf from this server's sessions (most recent first) and zoxide's
+#   directories; Enter goes there, Ctrl+X kills the highlighted session, and a typed directory path also works.
+#   A directory gets the session already started there, else a new one named after it (characters other than
+#   letters, digits, _ and - become _). Anything else is looked up with zoxide, like cd.
+# Inside tmux this switches the current client; outside it, it attaches.
+emulate -L zsh
+setopt pipefail
+SELF=${0:A}
+
+die() { print -u2 "tmux-project: $*"; exit 1 }
+(( $+commands[tmux] )) || die 'tmux not found'
+
+go() {  # session
+    if [[ -n $TMUX ]]; then tmux switch-client -t "=$1"   # in prefix g's popup too: the client it covers
+    else tmux attach-session -t "=$1"; fi
+}
+
+open-dir() {  # directory
+    local dir=${1:A} base name s
+    local -i n=1
+    [[ -d $dir ]] || die "not a directory: $1"
+    s=$(tmux list-sessions -F $'#{session_path}\t#{session_name}' 2>/dev/null | awk -F '\t' -v d=$dir '$1 == d { print $2; exit }')
+    [[ -n $s ]] && { go $s; return }
+    base=${${dir:t}//[^A-Za-z0-9_-]/_}
+    [[ -n $base ]] || base=root
+    name=$base
+    while tmux has-session -t "=$name" 2>/dev/null; do name=$base-$(( ++n )); done
+    tmux new-session -d -s $name -c $dir && go $name
+}
+
+list() {  # lines of: kind TAB key TAB what fzf shows
+    local name dir wins att act
+    local -a used
+    tmux list-sessions -F $'#{session_activity}\t#{session_name}\t#{session_path}\t#{session_windows}\t#{session_attached}' 2>/dev/null |
+        sort -t $'\t' -k1,1nr | while IFS=$'\t' read -r act name dir wins att; do
+            used+=($dir)
+            printf 'session\t%s\t%-24s %s%s\n' $name "$name ($wins)" ${dir/#$HOME/\~} "${${att:#0}:+  [attached]}"
+        done
+    (( $+commands[zoxide] )) || return 0
+    zoxide query -l 2>/dev/null | head -n 300 | while read -r dir; do
+        (( $used[(Ie)$dir] )) || printf 'dir\t%s\t%-24s %s\n' $dir '+ new session' ${dir/#$HOME/\~}
+    done
+}
+
+preview() {  # kind key
+    case $1 in
+        session) tmux capture-pane -e -p -t "=$2:" 2>/dev/null ;;
+        dir)     ls -la --color=always -- $2 2>/dev/null | head -n 200 ;;
+    esac
+}
+
+pick() {
+    local out query sel kind rest
+    (( $+commands[fzf] )) || die 'fzf not found'
+    out=$(list | fzf --delimiter '\t' --with-nth 3 --print-query --height 100% --layout reverse --border none \
+        --prompt 'project> ' --header 'Enter: go there    Ctrl+X: kill session    or type a directory path' \
+        --preview "$SELF --preview {1} {2}" --preview-window right,50% \
+        --bind "ctrl-x:execute-silent($SELF --kill {1} {2})+reload($SELF --list)")
+    local -a lines=("${(@f)out}")   # the query line comes first, even when empty
+    query=$lines[1] sel=$lines[2]
+    if [[ -n $sel ]]; then
+        kind=${sel%%$'\t'*} rest=${sel#*$'\t'}
+        if [[ $kind == session ]]; then go ${rest%%$'\t'*}; else open-dir ${rest%%$'\t'*}; fi
+    elif [[ -n $query && -d ${query/#\~/$HOME} ]]; then
+        open-dir ${query/#\~/$HOME}
+    fi
+}
+
+case $1 in
+    -h|--help) sed -n '2,7s/^# \{0,1\}//p' $SELF ;;
+    --list)    list ;;
+    --preview) preview $2 $3 ;;
+    --kill)    [[ $2 == session ]] && tmux kill-session -t "=$3" ;;
+    '')        pick ;;
+    *)         if tmux has-session -t "=$1" 2>/dev/null; then go $1
+               elif [[ -d $1 ]]; then open-dir $1
+               elif (( $+commands[zoxide] )) && dir=$(zoxide query -- "$@" 2>/dev/null); then open-dir $dir
+               else die "no session, directory, or zoxide match for: $*"; fi ;;
+esac

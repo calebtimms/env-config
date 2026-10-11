@@ -17,6 +17,14 @@ set incsearch hlsearch showmatch ignorecase smartcase wildmenu wildmode=list:lon
 set history=1000 undolevels=1000
 set sessionoptions-=options sessionoptions+=localoptions   " sessions restore the workspace, not vimrc settings
 if !empty($VIM_MANPAGER) | set nonumber norelativenumber noshowmode | endif
+" Inside tmux (TERM tmux-256color), terminal Vim gets what it gives xterm: SGR mouse (clicks past column 223), focus
+" events (FocusGained refreshes GitGutter) and bracketed paste.
+if &term =~# '^\%(tmux\|screen\)'
+  set ttymouse=sgr
+  let &t_fe = "\e[?1004h" | let &t_fd = "\e[?1004l"
+  let &t_BE = "\e[?2004h" | let &t_BD = "\e[?2004l" | let &t_PS = "\e[200~" | let &t_PE = "\e[201~"
+  execute "set <FocusGained>=\e[I <FocusLost>=\e[O"
+endif
 
 "" Appearance (custom highlights are reapplied whenever a colorscheme loads)
 function! s:Highlights() abort
@@ -415,8 +423,16 @@ command! ObPause if exists('g:this_obsession') | silent! Obsession | endif | cal
 command! ObPath echo s:SessionPath('')
 
 "" Startup
-function! s:IsViewer() abort   " man pages and kitty scrollback never touch sessions or plugin UI
-  return !empty($KITTY_SCROLLBACK) || !empty($VIM_MANPAGER)
+function! s:IsViewer() abort   " man pages and kitty or tmux scrollback never touch sessions or plugin UI
+  return !empty($KITTY_SCROLLBACK) || !empty($VIM_MANPAGER) || !empty($VIM_SCROLLBACK)
+endfunction
+
+function! s:ScrollbackViewer() abort   " tmux's prefix e: a read-only scratch buffer without the blank tail, at the end
+  setlocal buftype=nofile bufhidden=wipe noswapfile noreadonly
+  silent! keeppatterns %s/\s\+$//e
+  silent! keeppatterns %s/\(\n\s*\)\+\%$//e
+  setlocal nomodifiable nomodified nonumber norelativenumber   " no line numbers, as in man pages
+  normal! G
 endfunction
 
 function! s:MaybeStartObsession() abort
@@ -452,6 +468,7 @@ augroup SafePluginStartup
   autocmd!
   autocmd VimEnter * call s:MaybeStartObsession()
   autocmd VimEnter * call s:SafePluginStartup()
+  autocmd VimEnter * if !empty($VIM_SCROLLBACK) | call s:ScrollbackViewer() | endif
 augroup END
 " Obsession saves on VimLeavePre, so the lock is released afterwards.
 augroup ObsessionLock

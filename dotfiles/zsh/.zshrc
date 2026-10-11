@@ -11,6 +11,27 @@ export EDITOR=vim SUDO_EDITOR=vim
 export OBSESSION_ROOT=${OBSESSION_ROOT:-$HOME/obsessions}
 export MANROFFOPT='-c -rU0' MANPAGER='env VIM_MANPAGER=1 vim +MANPAGER --not-a-term -'
 
+# === tmux =====================================================================
+# Interactive terminal shells run inside tmux (~/.tmux.conf, the work setup). A terminal attaches to the most recently
+# used unattached session, else the most recent one, else a new "main"; detaching, or the server ending, closes the
+# terminal. Left alone: shells already in tmux (or under a multiplexer across ssh, TERM tmux*/screen*), Vim and Code
+# OSS terminals, zsh -c and scripts, TMUX_AUTO=0, and machines without a ~/.tmux.conf. If tmux cannot start, the shell
+# carries on without it. Meanwhile a Kitty window has its in_tmux user variable set, so kitty.conf's split, pane and
+# scrollback keys drive tmux there.
+if [[ -z $TMUX && $TMUX_AUTO != 0 && -z $ZSH_EXECUTION_STRING$ZSH_SCRIPT && -t 0 && -t 1 && $TERM != (dumb|tmux*|screen*) &&
+      -z $VIM_TERMINAL && $TERM_PROGRAM != vscode && -e ~/.tmux.conf ]] && (( $+commands[tmux] )); then
+    () {
+        local -i start=$SECONDS
+        local s=$(tmux list-sessions -F '#{session_attached} #{session_activity} #{session_name}' 2>/dev/null |
+            sort -k1,1n -k2,2nr | head -n 1)
+        [[ $TERM == xterm-kitty ]] && print -n '\e]1337;SetUserVar=in_tmux=MQ==\a'   # MQ== is base64 for 1
+        if [[ -n $s ]]; then tmux attach-session -t "=${s#* * }"; else tmux new-session -s main; fi
+        (( $? == 0 || SECONDS - start > 3 ))   # ran, then detached or its server ended; a failure to start is quick
+    } && exit
+    [[ $TERM == xterm-kitty ]] && print -n '\e]1337;SetUserVar=in_tmux\a'   # no value: unset
+    print -u2 'zsh: tmux did not start, so this shell runs without it (TMUX_AUTO=0 skips tmux).'
+fi
+
 # === Options & history ========================================================
 
 setopt autocd extendedglob interactivecomments typesetsilent prompt_subst no_beep globdots
@@ -369,6 +390,27 @@ if (( $+commands[fzf] && $+commands[fd] )); then
     bindkey -M emacs '^G' _fzf-directory-switcher
 fi
 
+# tmux's prefix e sends ESC [99~ (no key does) to a zsh at its prompt: the pane's scrollback opens here in read-only
+# Vim (the vimrc's VIM_SCROLLBACK viewer), like a man page, and :a returns to the line as it was.
+_tmux-scrollback() {
+    tmux capture-pane -p -J -S - -t $TMUX_PANE | env VIM_SCROLLBACK=1 vim -R --not-a-term -
+    zle reset-prompt; zle -R
+}
+zle -N _tmux-scrollback
+bindkey -M emacs '^[[99~' _tmux-scrollback
+
+# tmux's prefix r and Z write a new stamp beside the tmux sockets and run sz in every shell idle at its prompt. A shell
+# that was busy notices the new stamp when its next prompt starts and runs sz itself.
+_zshrc_stamp=${TMUX:+${${TMUX%%,*}:h}/zshrc-reload} _zshrc_loaded=
+[[ -n $_zshrc_stamp ]] && { read -r _zshrc_loaded < $_zshrc_stamp } 2>/dev/null
+_zshrc-reload-check() {
+    local stamp
+    [[ -n $_zshrc_stamp ]] && { read -r stamp < $_zshrc_stamp } 2>/dev/null && [[ $stamp != $_zshrc_loaded ]] || return 0
+    _zshrc_loaded=$stamp   # first, so a ~/.zshrc that fails to load is not retried at every prompt
+    zle push-line; BUFFER=sz; zle accept-line
+}
+autoload -Uz add-zle-hook-widget && add-zle-hook-widget line-init _zshrc-reload-check
+
 # === Files ====================================================================
 
 if (( $+commands[eza] )); then
@@ -632,6 +674,58 @@ _custom-register System diskcheck 'Show root/home mounts, LVM state, and physica
 _custom-alias Tools \
     view          'feh --auto-zoom --image-bg black --scale-down'        'View images scaled to fit on a black background.' \
     mouse-battery 'solaar show 2>/dev/null | grep "Battery:" | tail -1' 'Show the mouse battery level reported by Solaar.'
+
+# tp: tmux sessions per project (tmux-project from ~/env-config/scripts; prefix g is the same picker).
+if (( $+commands[tmux-project] )); then
+    _custom-alias Tools tp tmux-project 'Go to a project tmux session: pick (no argument) or name a session, directory or zoxide query.'
+    _tmux-project() {
+        local -a sessions=(${(f)"$(tmux list-sessions -F '#{session_name}' 2>/dev/null)"})
+        _alternative "sessions:tmux session:(${(q)sessions})" 'directories:directory:_directories'
+    }
+    compdef _tmux-project tmux-project
+fi
+
+# tmux-kill [server]: save the server's sessions (tmux-resurrect, when it has it loaded; the next server restores them),
+# then tmux -L <server> kill-server, which ends its sessions and closes every terminal attached to it; without an
+# argument, the server this shell is in (else the default one). Both steps run the server's own binary, so they still
+# work after an update has replaced the tmux that the server started from; the next terminal then starts the new one.
+_tmux-servers() {  # reply=(server pid ...): the running servers, whose sockets ss shows listening (stale ones are not)
+    local line
+    reply=()
+    for line in ${(f)"$(ss -xlpH 2>/dev/null)"}; do
+        [[ $line == (#b)*" "${TMUX_TMPDIR:-/tmp}/tmux-$UID/([^ /]##)" "*pid=(<->),* ]] && reply+=($match[1] $match[2])
+    done
+}
+tmux-kill() {
+    local usage="Usage: tmux-kill [server]\nSave a tmux server's sessions (tmux-resurrect), then end it (tmux -L server kill-server) and close every terminal attached to it. Without a server, the one this shell is in, else default."
+    [[ $1 == (-h|--help) ]] && { print $usage; return 0 }
+    (( $# <= 1 )) && [[ $1 != -* ]] || { print -u2 $usage; return 2 }
+    local server=${1:-${${${TMUX%%,*}:t}:-default}} exe save bin
+    local -A pids
+    _tmux-servers; pids=($reply)
+    [[ -n $pids[$server] ]] || { print -u2 "tmux-kill: no tmux server named $server is running"; return 1 }
+    exe=/proc/$pids[$server]/exe
+    save=$($exe -L $server show -gqv @resurrect-save-script-path)
+    if [[ -x $save ]]; then
+        # The save script runs the tmux on PATH against $TMUX: point both at this server.
+        bin=$(mktemp -d) && ln -s $exe $bin/tmux &&
+            ( unset TMUX_PANE; TMUX=${TMUX_TMPDIR:-/tmp}/tmux-$UID/$server,$pids[$server],0 PATH=$bin:$PATH $save quiet ) ||
+            { [[ -n $bin ]] && rm -rf $bin; print -u2 "tmux-kill: could not save $server, so it was left running"; return 1 }
+        rm -rf $bin
+    fi
+    $exe -L $server kill-server
+}
+_tmux-kill() {
+    (( CURRENT == 2 )) || return 1
+    local server; local -a servers; local -A pids
+    _tmux-servers; pids=($reply)
+    for server in ${(k)pids}; do
+        servers+=("${server//:/\\:}:sessions: ${(j:, :)${(f)"$(/proc/$pids[$server]/exe -L $server list-sessions -F '#{session_name}' 2>/dev/null)"}}")
+    done
+    _describe 'tmux server' servers
+}
+compdef _tmux-kill tmux-kill
+_custom-register Tools tmux-kill 'Save a tmux server (tmux-resurrect), then end it and close its terminals; no argument: the server this shell is in.'
 
 tool-status() {
     local tool

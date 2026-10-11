@@ -1,3 +1,4 @@
+alacritty
 alsa-utils
 amd-ucode
 asusctl
@@ -94,6 +95,8 @@ vlc
 wine
 wine-mono
 winetricks
+wl-clip-persist
+wl-clipboard
 yt-dlp
 zoxide
 zsh

@@ -8,5 +8,6 @@ lib32-v4l-utils
 localsend
 mediatek-mt7927-dkms
 sunshine-bin
+tmux-resurrect
 yay-git
 yay-git-debug
