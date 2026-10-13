@@ -9,7 +9,7 @@ System:
  Platform Lang: en_US.UTF-8
 
 Current Boot Loader:
-        Product: systemd-boot 261.2-1-arch
+        Product: systemd-boot 262-1-arch
        Features: ✓ Boot counting
                  ✓ Menu timeout control
                  ✓ One-shot menu timeout control
@@ -32,7 +32,7 @@ Current Boot Loader:
                  ✓ Loader reports firmware keyboard layout
                  ✓ Loader measures SMBIOS information
       Partition: /dev/disk/by-partuuid/20378438-0451-43d2-9ce1-6cf8ce85a3a2
-         Loader: └─/efi//EFI/systemd/systemd-boot-fallbackx64.efi
+         Loader: └─/efi//EFI/systemd/systemd-bootx64.efi
 Keyboard Layout: n/a (not reported by firmware)
   Current Entry: arch-linux.efi
 
