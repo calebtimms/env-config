@@ -1,0 +1,6 @@
+[Unit]
+Description=Memory-heavy jobs Claude Code runs: 80 GB for all of them together, no swap
+
+[Slice]
+MemoryMax=80G
+MemorySwapMax=0

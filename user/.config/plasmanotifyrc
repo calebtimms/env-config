@@ -3,3 +3,13 @@ Seen=true
 ShowBadges=false
 ShowInHistory=false
 ShowPopups=false
+
+[Applications][org.kde.spectacle]
+ShowBadges=false
+ShowInHistory=false
+ShowPopups=false
+ShowPopupsInDndMode=false
+
+[Applications][vlc]
+ShowBadges=false
+ShowPopups=false

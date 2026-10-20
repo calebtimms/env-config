@@ -1,6 +1,10 @@
+[General]
+clipboardGroup=PostScreenshotCopyImage
+launchAction=UseLastUsedCapturemode
+
 [ImageSave]
 lastImageSaveAsLocation=file:///home/Timmseh/Pictures/Screenshots/Sierra-Chart-Price-Mismatch.png
-lastImageSaveLocation=file:///home/Timmseh/Pictures/Screenshots/Sierra-Chart-Price-Mismatch.png
+lastImageSaveLocation=file:///home/Timmseh/Pictures/Screenshots/Screenshot_20261015_092127.png
 translatedScreenshotsFolder=Screenshots
 
 [VideoSave]
