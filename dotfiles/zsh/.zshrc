@@ -569,10 +569,12 @@ _update-body() {
     # Keep the sudo timestamp fresh so yay/env-save never re-prompt during a long pacman run.
     ( while sleep 60; do sudo -n -v >/dev/null 2>&1 || exit; done ) &!
     keepalive=$!
+    # Every prompt takes its default answer: proceed, exclude nothing, no clean builds, no diffs.
+    # A prompt that defaults to "no" (e.g. a package conflict) stops the update; pu/yu stay interactive.
     {
         printf '\n--- Updating via Pacman ---\n\n'
-        if sudo pacman -Syu; then
-            (( $+commands[yay] )) && { printf '\n--- Updating via Yay ---\n\n'; yay; rc=$? }
+        if sudo pacman -Syu --noconfirm; then
+            (( $+commands[yay] )) && { printf '\n--- Updating via Yay ---\n\n'; yay --answerupgrade None --answerclean None --answerdiff None --noconfirm; rc=$? }
             (( $+commands[env-save] )) && { printf '\n--- Saving Environment State ---\n\n'; env-save }
         else
             printf '\n--- Pacman update failed; stopping ---\n\n'; rc=1
@@ -629,7 +631,8 @@ update() {
 # Read-only preview of update. checkupdates syncs a throwaway copy of the databases, so the real
 # sync DB never gets ahead of the installed packages (no sudo, no partial-upgrade risk).
 update-check() {
-    local rc=0
+    local rc=0 news color=never
+    [[ -t 1 ]] && color=always
     printf '\n--- Pending Pacman Updates ---\n\n'
     if (( $+commands[checkupdates] )); then
         checkupdates | _update-colorize; case $pipestatus[1] in 0) ;; 2) print 'Nothing to update.' ;; *) rc=1 ;; esac
@@ -639,6 +642,9 @@ update-check() {
     if (( $+commands[yay] )); then
         printf '\n--- Pending AUR Updates ---\n\n'
         yay -Qua --color never | _update-colorize; (( pipestatus[1] )) && print 'Nothing to update.'
+        # News goes last so it stays on screen; yay only prints items newer than the last database sync.
+        printf '\n--- Arch News Since the Last Update ---\n\n'
+        if news=$(yay -Pw --color $color); then print -r -- ${news:-Nothing new.}; else print 'Could not fetch the Arch news feed.'; rc=1; fi
     fi
     return $rc
 }
@@ -667,7 +673,7 @@ search() {
 }
 
 _custom-register Packages \
-    update       'Upgrade the system with pacman/yay, then run env-save if available.' \
+    update       'Upgrade the system with pacman/yay without prompting, then run env-save if available.' \
     update-check 'List pending pacman and AUR updates without installing anything.' \
     search       'Search official Arch repositories and the AUR when yay is available.'
 
