@@ -643,9 +643,9 @@ update-check() {
     return $rc
 }
 
-# "name old -> new" update lists: versions split into whole numbers, letter runs and separators,
-# and only the parts that differ (what is left after the common prefix and suffix) are coloured,
-# red in the old version and green in the new.
+# "name old -> new" update lists: name and arrow in yellow; versions split into whole numbers, letter runs
+# and separators, and only the parts that differ (what is left after the common prefix and suffix)
+# are coloured, red in the old version and green in the new.
 _update-colorize() {
     [[ -t 1 ]] || { cat; return }
     perl -MList::Util=min -pe '
@@ -657,7 +657,7 @@ _update-colorize() {
             my ($max, $pre, $suf) = (min(scalar @o, scalar @n), 0, 0);
             $pre++ while $pre < $max && $o[$pre] eq $n[$pre];
             $suf++ while $suf < $max - $pre && $o[-1 - $suf] eq $n[-1 - $suf];
-            "$name " . mark($pre, $suf, 31, @o) . " -> " . mark($pre, $suf, 32, @n)
+            "\e[33m$name\e[0m " . mark($pre, $suf, 31, @o) . " \e[33m->\e[0m " . mark($pre, $suf, 32, @n)
         }e'
 }
 
