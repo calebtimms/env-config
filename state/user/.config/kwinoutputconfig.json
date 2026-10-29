@@ -6,17 +6,10 @@
         "allowDdcCi": true,
         "allowSdrSoftwareBrightness": true,
         "autoBrightnessCurve": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
+          [
+            0,
+            1
+          ]
         ],
         "autoRotation": "InTabletMode",
         "automaticBrightness": false,
@@ -24,7 +17,6 @@
         "colorPowerTradeoff": "PreferEfficiency",
         "colorProfileSource": "sRGB",
         "connectorName": "Unknown-1",
-        "customModes": [],
         "detectedDdcCi": false,
         "edrPolicy": "always",
         "hdrColorProfileSource": "EDID",
@@ -53,17 +45,10 @@
         "allowDdcCi": true,
         "allowSdrSoftwareBrightness": false,
         "autoBrightnessCurve": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
+          [
+            0,
+            1
+          ]
         ],
         "autoRotation": "InTabletMode",
         "automaticBrightness": false,
@@ -71,7 +56,6 @@
         "colorPowerTradeoff": "PreferAccuracy",
         "colorProfileSource": "sRGB",
         "connectorName": "DP-1",
-        "customModes": [],
         "detectedDdcCi": true,
         "edidHash": "d57773c834a0bbc74f2e04790890bb19",
         "edidIdentifier": "ACR 1168 1660957703 30 2016 0",
@@ -82,10 +66,21 @@
         "iccProfilePath": "",
         "maxBitsPerColor": 0,
         "mode": {
-          "flags": 0,
-          "height": 1440,
-          "refreshRate": 143998,
-          "width": 2560
+          "cvt": {
+            "clock": 586580,
+            "flags": 5,
+            "hdisplay": 2560,
+            "hskew": 0,
+            "hsyncEnd": 2600,
+            "hsyncStart": 2568,
+            "htotal": 2640,
+            "vdisplay": 1440,
+            "vscan": 0,
+            "vsyncEnd": 1453,
+            "vsyncStart": 1443,
+            "vtotal": 1543
+          },
+          "flags": 0
         },
         "overscan": 0,
         "rgbRange": "Automatic",
@@ -103,17 +98,10 @@
         "allowDdcCi": true,
         "allowSdrSoftwareBrightness": false,
         "autoBrightnessCurve": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
+          [
+            0,
+            1
+          ]
         ],
         "autoRotation": "InTabletMode",
         "automaticBrightness": false,
@@ -121,7 +109,6 @@
         "colorPowerTradeoff": "PreferAccuracy",
         "colorProfileSource": "EDID",
         "connectorName": "DP-2",
-        "customModes": [],
         "detectedDdcCi": true,
         "edidHash": "494d547a15f0a4634d5fae857d5c732f",
         "edidIdentifier": "MSI 15600 0 7 2025 0",
@@ -133,10 +120,21 @@
         "maxBitsPerColor": 0,
         "maxPeakBrightnessOverride": 1000,
         "mode": {
-          "flags": 0,
-          "height": 2160,
-          "refreshRate": 160000,
-          "width": 3840
+          "cvt": {
+            "clock": 1417600,
+            "flags": 9,
+            "hdisplay": 3840,
+            "hskew": 0,
+            "hsyncEnd": 3920,
+            "hsyncStart": 3888,
+            "htotal": 4000,
+            "vdisplay": 2160,
+            "vscan": 0,
+            "vsyncEnd": 2176,
+            "vsyncStart": 2165,
+            "vtotal": 2215
+          },
+          "flags": 0
         },
         "overscan": 0,
         "rgbRange": "Automatic",
@@ -154,17 +152,10 @@
         "allowDdcCi": true,
         "allowSdrSoftwareBrightness": false,
         "autoBrightnessCurve": [
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          0
+          [
+            0,
+            1
+          ]
         ],
         "autoRotation": "InTabletMode",
         "automaticBrightness": false,
@@ -172,7 +163,6 @@
         "colorPowerTradeoff": "PreferAccuracy",
         "colorProfileSource": "sRGB",
         "connectorName": "DP-3",
-        "customModes": [],
         "detectedDdcCi": true,
         "edidHash": "a0f83cac8e03e024eb1364ab73e33127",
         "edidIdentifier": "ACR 1168 2170625112 16 2018 0",
@@ -183,10 +173,21 @@
         "iccProfilePath": "",
         "maxBitsPerColor": 0,
         "mode": {
-          "flags": 0,
-          "height": 1440,
-          "refreshRate": 143998,
-          "width": 2560
+          "cvt": {
+            "clock": 586580,
+            "flags": 5,
+            "hdisplay": 2560,
+            "hskew": 0,
+            "hsyncEnd": 2600,
+            "hsyncStart": 2568,
+            "htotal": 2640,
+            "vdisplay": 1440,
+            "vscan": 0,
+            "vsyncEnd": 1453,
+            "vsyncStart": 1443,
+            "vtotal": 1543
+          },
+          "flags": 0
         },
         "overscan": 0,
         "rgbRange": "Automatic",
