@@ -626,14 +626,50 @@ update() {
     return $completion_rc
 }
 
+# Read-only preview of update. checkupdates syncs a throwaway copy of the databases, so the real
+# sync DB never gets ahead of the installed packages (no sudo, no partial-upgrade risk).
+update-check() {
+    local rc=0
+    printf '\n--- Pending Pacman Updates ---\n\n'
+    if (( $+commands[checkupdates] )); then
+        checkupdates | _update-colorize; case $pipestatus[1] in 0) ;; 2) print 'Nothing to update.' ;; *) rc=1 ;; esac
+    else
+        print 'checkupdates not found; install pacman-contrib.'; rc=1
+    fi
+    if (( $+commands[yay] )); then
+        printf '\n--- Pending AUR Updates ---\n\n'
+        yay -Qua --color never | _update-colorize; (( pipestatus[1] )) && print 'Nothing to update.'
+    fi
+    return $rc
+}
+
+# "name old -> new" update lists: versions split into whole numbers, letter runs and separators,
+# and only the parts that differ (what is left after the common prefix and suffix) are coloured,
+# red in the old version and green in the new.
+_update-colorize() {
+    [[ -t 1 ]] || { cat; return }
+    perl -MList::Util=min -pe '
+        sub mark { my ($pre, $suf, $color, @v) = @_;
+            join("", @v[0 .. $pre - 1]) . "\e[${color}m" . join("", @v[$pre .. $#v - $suf]) . "\e[0m" . join("", @v[@v - $suf .. $#v]) }
+        s{^(\S+) (\S+) -> (\S+)}{
+            my ($name, $old, $new) = ($1, $2, $3);
+            my @o = $old =~ /\d+|[[:alpha:]]+|./g; my @n = $new =~ /\d+|[[:alpha:]]+|./g;
+            my ($max, $pre, $suf) = (min(scalar @o, scalar @n), 0, 0);
+            $pre++ while $pre < $max && $o[$pre] eq $n[$pre];
+            $suf++ while $suf < $max - $pre && $o[-1 - $suf] eq $n[-1 - $suf];
+            "$name " . mark($pre, $suf, 31, @o) . " -> " . mark($pre, $suf, 32, @n)
+        }e'
+}
+
 search() {
     print '--- From Pacman ---'; pacman -Ss "$@"
     if (( $+commands[yay] )); then print '\n--- From AUR ---'; yay -Ss "$@"; fi
 }
 
 _custom-register Packages \
-    update 'Upgrade the system with pacman/yay, then run env-save if available.' \
-    search 'Search official Arch repositories and the AUR when yay is available.'
+    update       'Upgrade the system with pacman/yay, then run env-save if available.' \
+    update-check 'List pending pacman and AUR updates without installing anything.' \
+    search       'Search official Arch repositories and the AUR when yay is available.'
 
 # === System ===================================================================
 
