@@ -10,4 +10,3 @@ mediatek-mt7927-dkms
 sunshine-bin
 tmux-resurrect
 yay-git
-yay-git-debug

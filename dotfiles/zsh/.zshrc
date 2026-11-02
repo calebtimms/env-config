@@ -631,40 +631,92 @@ update() {
 # Read-only preview of update. checkupdates syncs a throwaway copy of the databases, so the real
 # sync DB never gets ahead of the installed packages (no sudo, no partial-upgrade risk).
 update-check() {
-    local rc=0 news color=never
+    local rc=0 news pending color=never pacman_count=0 aur_count=0
+    # Pinned so _update-totals reads the same database checkupdates just synced.
+    local -x CHECKUPDATES_DB=${CHECKUPDATES_DB:-${TMPDIR:-/tmp}/checkup-db-$UID/}
     [[ -t 1 ]] && color=always
     printf '\n--- Pending Pacman Updates ---\n\n'
     if (( $+commands[checkupdates] )); then
-        checkupdates | _update-colorize; case $pipestatus[1] in 0) ;; 2) print 'Nothing to update.' ;; *) rc=1 ;; esac
+        pending=$(checkupdates)
+        case $? in
+            0) print -r -- $pending | _update-colorize; pacman_count=${#${(f)pending}} ;;
+            2) print 'Nothing to update.' ;;
+            *) rc=1 ;;
+        esac
     else
         print 'checkupdates not found; install pacman-contrib.'; rc=1
     fi
     if (( $+commands[yay] )); then
         printf '\n--- Pending AUR Updates ---\n\n'
-        yay -Qua --color never | _update-colorize; (( pipestatus[1] )) && print 'Nothing to update.'
-        # News goes last so it stays on screen; yay only prints items newer than the last database sync.
+        if pending=$(yay -Qua --color never); then
+            print -r -- $pending | _update-colorize; aur_count=${#${(f)pending}}
+        else
+            print 'Nothing to update.'
+        fi
+        # News and totals go last so they stay on screen; yay only prints items newer than the last database sync.
         printf '\n--- Arch News Since the Last Update ---\n\n'
         if news=$(yay -Pw --color $color); then print -r -- ${news:-Nothing new.}; else print 'Could not fetch the Arch news feed.'; rc=1; fi
     fi
+    printf '\n--- Totals ---\n\n'
+    _update-totals $pacman_count $aur_count
     return $rc
 }
 
-# "name old -> new" update lists: name and arrow in yellow; versions split into whole numbers, letter runs
-# and separators, and only the parts that differ (what is left after the common prefix and suffix)
-# are coloured, red in the old version and green in the new.
+# "name old -> new" update lists: old version, arrow and new version each start on one column across
+# the list. Name and arrow are yellow; versions split into whole numbers, letter runs and separators,
+# and only the parts that differ (what is left after the common prefix and suffix) are coloured, red
+# in the old version and green in the new. Colour on a terminal only.
 _update-colorize() {
-    [[ -t 1 ]] || { cat; return }
-    perl -MList::Util=min -pe '
+    perl -MList::Util=max,min -0777 -pe '
         sub mark { my ($pre, $suf, $color, @v) = @_;
             join("", @v[0 .. $pre - 1]) . "\e[${color}m" . join("", @v[$pre .. $#v - $suf]) . "\e[0m" . join("", @v[@v - $suf .. $#v]) }
+        my $name_width = max(0, map length, /^(\S+) \S+ -> /mg);
+        my $old_width = max(0, map length, /^\S+ (\S+) -> /mg);
         s{^(\S+) (\S+) -> (\S+)}{
             my ($name, $old, $new) = ($1, $2, $3);
             my @o = $old =~ /\d+|[[:alpha:]]+|./g; my @n = $new =~ /\d+|[[:alpha:]]+|./g;
             my ($max, $pre, $suf) = (min(scalar @o, scalar @n), 0, 0);
             $pre++ while $pre < $max && $o[$pre] eq $n[$pre];
             $suf++ while $suf < $max - $pre && $o[-1 - $suf] eq $n[-1 - $suf];
-            "\e[33m$name\e[0m " . mark($pre, $suf, 31, @o) . " \e[33m->\e[0m " . mark($pre, $suf, 32, @n)
-        }e'
+            my ($name_pad, $old_pad) = (" " x ($name_width - length $name), " " x ($old_width - length $old));
+            "\e[33m$name\e[0m$name_pad " . mark($pre, $suf, 31, @o) . "$old_pad \e[33m->\e[0m " . mark($pre, $suf, 32, @n)
+        }mge;
+        s/\e\[\d+m//g unless -t STDOUT'
+}
+
+# Update counts, with the pacman sizes indented under them. pacman -p can never commit anything, and its
+# targets include new dependencies, so the sizes cover what -Syu would really do. %s is the download size
+# less anything already cached; installed sizes only exist as rounded text in -Si and -Qi.
+_update-totals() {
+    local pacman_count=$1 aur_count=$2 mib=1048576.0 download=0 installed removed target note dep_word=dependencies
+    local -a targets
+    if (( pacman_count )); then
+        targets=(${(f)"$(pacman -Sup --dbpath $CHECKUPDATES_DB --logfile /dev/null --print-format '%r/%n %s' 2>/dev/null)"})
+    fi
+    local new_deps=$(( $#targets - pacman_count ))
+    (( new_deps == 1 )) && dep_word=dependency
+    (( new_deps > 0 )) && note=" (+$new_deps new $dep_word)"
+    printf 'Pacman Updates: %d%s\n' $pacman_count "$note"
+    if (( $#targets )); then
+        for target in $targets; do (( download += ${target##* } )); done
+        installed=$(LC_ALL=C pacman -Si --dbpath $CHECKUPDATES_DB ${targets%% *} | _update-isize-sum)
+        removed=$(LC_ALL=C pacman -Qi ${${targets%% *}#*/} 2>/dev/null | _update-isize-sum)
+        printf '\t%-21s %.2f MiB\n' 'Total Download Size:' $(( download / mib )) 'Total Installed Size:' $(( installed / mib )) 'Net Upgrade Size:' $(( (installed - removed) / mib ))
+    elif (( pacman_count )); then
+        print '\tSizes unavailable: pacman could not plan the upgrade.'
+    fi
+    (( $+commands[yay] )) || return
+    note=''
+    (( aur_count )) && note=' (sizes are only known after building)'
+    printf '\nAUR Updates: %d%s\n' $aur_count "$note"
+}
+
+# Adds up the "Installed Size" fields of pacman -Si/-Qi output, in bytes.
+_update-isize-sum() {
+    perl -ne '
+        BEGIN { %power = (B => 0, KiB => 1, MiB => 2, GiB => 3) }
+        $sum += $1 * 1024 ** $power{$2} if /^Installed Size\s*:\s*([\d.]+) (\S+)/;
+        END { printf "%.0f", $sum }'
 }
 
 search() {
@@ -674,7 +726,7 @@ search() {
 
 _custom-register Packages \
     update       'Upgrade the system with pacman/yay without prompting, then run env-save if available.' \
-    update-check 'List pending pacman and AUR updates without installing anything.' \
+    update-check 'List pending pacman and AUR updates, Arch news and totals without installing anything.' \
     search       'Search official Arch repositories and the AUR when yay is available.'
 
 # === System ===================================================================

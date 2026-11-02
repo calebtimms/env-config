@@ -142,10 +142,10 @@ contrast=4
 frameContrast=0.2
 
 [KFileDialog Settings]
-Allow Expansion=false
+Allow Expansion=true
 Automatically select filename extension=true
 Breadcrumb Navigation=false
-Decoration position=2
+Decoration position=0
 Show Full Path=false
 Show Inline Previews=true
 Show Preview=false

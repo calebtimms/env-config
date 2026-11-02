@@ -1,6 +1,7 @@
 alacritty
 alsa-utils
 amd-ucode
+arp-scan
 asusctl
 atuin
 base
@@ -60,6 +61,7 @@ openai-codex
 openal
 openssh
 os-prober
+pacman-contrib
 piper
 pipewire-alsa
 plasma-meta
@@ -73,6 +75,7 @@ python-pyqt6-graphs
 python-pyqt6-networkauth
 python-pyqt6-webengine
 python-tzdata
+rpi-imager
 rsync
 sbctl
 sddm

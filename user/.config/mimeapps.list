@@ -1,6 +1,10 @@
+[Added Associations]
+x-scheme-handler/prusaslicer=PrusaSlicer.desktop;
 
 [Default Applications]
-x-scheme-handler/http=vivaldi-stable.desktop
-x-scheme-handler/https=vivaldi-stable.desktop
 text/html=vivaldi-stable.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
+x-scheme-handler/http=vivaldi-stable.desktop
+x-scheme-handler/https=vivaldi-stable.desktop
+x-scheme-handler/prusaslicer=PrusaSlicer.desktop;
+x-scheme-handler/rpi-imager=com.raspberrypi.rpi-imager-uri-handler.desktop

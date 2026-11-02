@@ -125,7 +125,7 @@ plugin=org.kde.plasma.dwellclicker
 
 [Containments][102][Applets][107][Applets][118]
 immutability=1
-plugin=org.kde.plasma.networkmanagement
+plugin=org.kde.plasma.keyboardlayout
 
 [Containments][102][Applets][107][Applets][119]
 immutability=1
@@ -247,7 +247,7 @@ DialogWidth=810
 
 [Containments][2][Applets][5][Configuration][General]
 iconSpacing=0
-launchers=preferred://browser,applications:kitty.desktop,applications:sierra.desktop,applications:discord.desktop,applications:steam.desktop,applications:org.freecad.FreeCAD.desktop,applications:code-oss.desktop,applications:localsend.desktop,applications:org.kde.spectacle.desktop,applications:systemsettings.desktop
+launchers=preferred://browser,applications:kitty.desktop,applications:sierra.desktop,applications:discord.desktop,applications:steam.desktop,applications:org.freecad.FreeCAD.desktop,applications:PrusaSlicer.desktop,applications:code-oss.desktop,applications:localsend.desktop,applications:org.kde.spectacle.desktop,applications:systemsettings.desktop
 minimizeActiveTaskOnClick=false
 showOnlyCurrentActivity=false
 showOnlyCurrentDesktop=false
