@@ -566,7 +566,7 @@ _update-body() {
     local rc=0 keepalive
     printf '\n=== Arch Update: %s ===\n\n' "$(date '+%Y-%m-%d %H:%M:%S')"
     sudo -v || { printf '\n--- Sudo authentication failed; stopping ---\n\n'; return 1 }
-    # Keep the sudo timestamp fresh so yay/env-save never re-prompt during a long pacman run.
+    # Keep the sudo timestamp fresh so yay/env-save/checkservices never re-prompt during a long pacman run.
     ( while sleep 60; do sudo -n -v >/dev/null 2>&1 || exit; done ) &!
     keepalive=$!
     # Every prompt takes its default answer: proceed, exclude nothing, no clean builds, no diffs.
@@ -576,6 +576,10 @@ _update-body() {
         if sudo pacman -Syu --noconfirm; then
             (( $+commands[yay] )) && { printf '\n--- Updating via Yay ---\n\n'; yay --answerupgrade None --answerclean None --answerdiff None --noconfirm; rc=$? }
             (( $+commands[env-save] )) && { printf '\n--- Saving Environment State ---\n\n'; env-save }
+            # Lists services still running replaced files. -P skips the interactive pacdiff, -L leaves systemd to
+            # pacman's own hooks, and -R restarts nothing: restarting the login manager would end the session.
+            printf '\n--- Checking Services ---\n\n'
+            if (( $+commands[checkservices] )); then sudo checkservices -P -L -R; else print 'checkservices not found; install archlinux-contrib.'; fi
         else
             printf '\n--- Pacman update failed; stopping ---\n\n'; rc=1
         fi
@@ -632,6 +636,7 @@ update() {
 # sync DB never gets ahead of the installed packages (no sudo, no partial-upgrade risk).
 update-check() {
     local rc=0 news pending color=never pacman_count=0 aur_count=0
+    local -a lines updates
     # Pinned so _update-totals reads the same database checkupdates just synced.
     local -x CHECKUPDATES_DB=${CHECKUPDATES_DB:-${TMPDIR:-/tmp}/checkup-db-$UID/}
     [[ -t 1 ]] && color=always
@@ -639,7 +644,7 @@ update-check() {
     if (( $+commands[checkupdates] )); then
         pending=$(checkupdates)
         case $? in
-            0) print -r -- $pending | _update-colorize; pacman_count=${#${(f)pending}} ;;
+            0) print -r -- $pending | _update-colorize; lines=(${(f)pending}); updates+=($lines); pacman_count=$#lines ;;
             2) print 'Nothing to update.' ;;
             *) rc=1 ;;
         esac
@@ -649,16 +654,19 @@ update-check() {
     if (( $+commands[yay] )); then
         printf '\n--- Pending AUR Updates ---\n\n'
         if pending=$(yay -Qua --color never); then
-            print -r -- $pending | _update-colorize; aur_count=${#${(f)pending}}
+            print -r -- $pending | _update-colorize; lines=(${(f)pending}); updates+=($lines); aur_count=$#lines
         else
             print 'Nothing to update.'
         fi
-        # News and totals go last so they stay on screen; yay only prints items newer than the last database sync.
+        # News, totals and the restart verdict go last so they stay on screen; yay only prints news items
+        # newer than the last database sync.
         printf '\n--- Arch News Since the Last Update ---\n\n'
         if news=$(yay -Pw --color $color); then print -r -- ${news:-Nothing new.}; else print 'Could not fetch the Arch news feed.'; rc=1; fi
     fi
     printf '\n--- Totals ---\n\n'
     _update-totals $pacman_count $aur_count
+    printf '\n--- Restart Required? ---\n\n'
+    _update-restart $updates
     return $rc
 }
 
@@ -719,13 +727,48 @@ _update-isize-sum() {
         END { printf "%.0f", $sum }'
 }
 
+# Restart verdict for pending "name old -> new" updates, checked against the running system. A reboot is
+# needed for the packages that own the running kernel's module directory (the kernel and its prebuilt
+# modules), DKMS modules, and NVIDIA libraries whose new version won't match the loaded driver. One is
+# recommended for CPU microcode and core components running processes keep using. Plasma, KDE Frameworks
+# and Qt otherwise only need a fresh session.
+_update-restart() {
+    local kernel=$(uname -r) kernel_pkg nvidia line name version width=0 session_count=0 i
+    local -a running session required recommended reasons
+    kernel_pkg=$(pacman -Qoq /usr/lib/modules/$kernel/vmlinuz 2>/dev/null)
+    running=(${(f)"$(pacman -Qoq /usr/lib/modules/$kernel 2>/dev/null)"})
+    session=(${(f)"$(pacman -Qgq plasma kf6 2>/dev/null)"})
+    [[ -r /sys/module/nvidia/version ]] && nvidia=$(</sys/module/nvidia/version)
+    [[ -d /usr/lib/modules/$kernel ]] || required+=($kernel 'running kernel was already replaced by an earlier update')
+    for line in "$@"; do
+        name=${line%% *} version=${${${line#* -> }%% *}#*:}
+        version=${version%-*}
+        if [[ $name == $kernel_pkg ]]; then required+=($name "running kernel ($kernel)")
+        elif [[ $name != *-headers ]] && (( $running[(Ie)$name] )); then required+=($name 'kernel module for the running kernel')
+        elif [[ $name == *-dkms ]]; then required+=($name 'DKMS kernel module; the loaded one stays old')
+        elif [[ $name == (lib32-|)nvidia-utils && -n $nvidia && $version != $nvidia ]]; then required+=($name "NVIDIA $version libraries won't match the loaded $nvidia driver")
+        elif [[ $name == (amd|intel)-ucode ]]; then recommended+=($name 'CPU microcode only loads at boot')
+        elif [[ $name == (systemd|glibc|dbus|dbus-broker) ]]; then recommended+=($name 'core component that running processes keep using')
+        elif [[ $name == qt6-* ]] || (( $session[(Ie)$name] )); then (( session_count++ ))
+        fi
+    done
+    if (( $#required )); then print 'Yes, reboot after updating:'
+    elif (( $#recommended )); then print 'Recommended, reboot after updating:'
+    elif (( session_count )); then print "Log out and back in after updating ($session_count KDE Plasma, KDE Frameworks and Qt packages)."
+    else print 'No.'
+    fi
+    reasons=($required $recommended)
+    for (( i = 1; i < $#reasons; i += 2 )); do (( width = $#reasons[i] > width ? $#reasons[i] : width )); done
+    (( $#reasons )) && printf "\t%-${width}s  %s\n" $reasons
+}
+
 search() {
     print '--- From Pacman ---'; pacman -Ss "$@"
     if (( $+commands[yay] )); then print '\n--- From AUR ---'; yay -Ss "$@"; fi
 }
 
 _custom-register Packages \
-    update       'Upgrade the system with pacman/yay without prompting, then run env-save if available.' \
+    update       'Upgrade the system with pacman/yay without prompting, then run env-save and checkservices if available.' \
     update-check 'List pending pacman and AUR updates, Arch news and totals without installing anything.' \
     search       'Search official Arch repositories and the AUR when yay is available.'
 
