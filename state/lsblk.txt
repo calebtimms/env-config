@@ -6,6 +6,9 @@
 /dev/disk/by-id/nvme-eui.002538a4514042df 3.6T disk     
 /dev/disk/by-id/nvme-eui.002538a4514042df-part1 2G part vfat FAT32 ARCH_EFI 915D-8BC2 20378438-0451-43d2-9ce1-6cf8ce85a3a2
 /dev/disk/by-id/nvme-eui.002538a4514042df-part2 3.6T part LVM2_member LVM2\x20001  n1PcK8-iPBc-OGmt-q8SK-hgW6-JR8t-07kQzt ee38a4b7-9cb4-4b0a-ba9d-de2d833db45b
+/dev/disk/by-id/usb-ADATA_USB_Flash_Drive_2381008202040672-0:0 29.7G disk iso9660 Joliet\x20Extension ARCH_202607 2026-07-01-16-36-20-00 
+/dev/disk/by-id/usb-ADATA_USB_Flash_Drive_2381008202040672-0:0-part1 1.2G part iso9660 Joliet\x20Extension ARCH_202607 2026-07-01-16-36-20-00 56cc2e96-01
+/dev/disk/by-id/usb-ADATA_USB_Flash_Drive_2381008202040672-0:0-part2 258M part vfat FAT32 ARCHISO_EFI 6A45-4204 56cc2e96-02
 /dev/disk/by-id/usb-Generic_MassStorageClass_000000001539-0:0 0B disk     
 /dev/disk/by-id/usb-Generic_MassStorageClass_000000002958-0:0 0B disk     
 /dev/disk/by-id/usb-Generic_MassStorageClass_000000002958-0:1 0B disk     

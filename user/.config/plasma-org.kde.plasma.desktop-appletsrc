@@ -129,18 +129,21 @@ plugin=org.kde.plasma.keyboardlayout
 
 [Containments][102][Applets][107][Applets][119]
 immutability=1
-plugin=org.kde.plasma.volume
+plugin=org.kde.plasma.networkmanagement
 
 [Containments][102][Applets][107][Applets][119][Configuration][General]
 migrated=true
 
 [Containments][102][Applets][107][Applets][120]
 immutability=1
-plugin=org.kde.plasma.printmanager
+plugin=org.kde.plasma.volume
+
+[Containments][102][Applets][107][Applets][120][Configuration][General]
+migrated=true
 
 [Containments][102][Applets][107][Applets][121]
 immutability=1
-plugin=org.kde.plasma.brightness
+plugin=org.kde.plasma.printmanager
 
 [Containments][102][Applets][107][Applets][122]
 immutability=1
@@ -153,6 +156,10 @@ plugin=org.kde.plasma.bluetooth
 [Containments][102][Applets][107][Applets][124]
 immutability=1
 plugin=org.kde.plasma.mediacontroller
+
+[Containments][102][Applets][107][Applets][129]
+immutability=1
+plugin=org.kde.plasma.brightness
 
 [Containments][102][Applets][107][General]
 extraItems=org.kde.plasma.vault,org.kde.plasma.bluetooth,org.kde.plasma.cameraindicator,org.kde.plasma.clipboard,org.kde.plasma.devicenotifier,org.kde.plasma.manage-inputmethod,org.kde.plasma.mediacontroller,org.kde.plasma.notifications,org.kde.plasma.keyboardindicator,org.kde.plasma.weather,org.kde.kscreen,org.kde.plasma.battery,org.kde.plasma.brightness,org.kde.plasma.keyboardlayout,org.kde.plasma.networkmanagement,org.kde.plasma.volume,org.kde.plasma.printmanager,org.kde.plasma.dwellclicker,org.kde.kupapplet
@@ -247,7 +254,7 @@ DialogWidth=810
 
 [Containments][2][Applets][5][Configuration][General]
 iconSpacing=0
-launchers=preferred://browser,applications:kitty.desktop,applications:sierra.desktop,applications:discord.desktop,applications:steam.desktop,applications:org.freecad.FreeCAD.desktop,applications:PrusaSlicer.desktop,applications:code-oss.desktop,applications:localsend.desktop,applications:org.kde.spectacle.desktop,applications:systemsettings.desktop
+launchers=preferred://browser,applications:kitty.desktop,applications:sierra.desktop,applications:steam.desktop,applications:org.freecad.FreeCAD.desktop,applications:PrusaSlicer.desktop,applications:code-oss.desktop,applications:localsend.desktop,applications:org.kde.spectacle.desktop,applications:systemsettings.desktop
 minimizeActiveTaskOnClick=false
 showOnlyCurrentActivity=false
 showOnlyCurrentDesktop=false

@@ -1,4 +1,5 @@
 blipnet
+bt-dualboot
 claude-code
 google-chrome
 lib32-giflib

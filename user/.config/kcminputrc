@@ -2,6 +2,15 @@
 PointerAcceleration=0.000
 PointerAccelerationProfile=2
 
+[Libinput][14096][21764][Pulsar Pulsar LINK 2 Dongle Mouse]
+PointerAcceleration=0.000
+PointerAccelerationProfile=2
+
+[Libinput][4617][3][libvirtualhid Mouse]
+PointerAcceleration=0.000
+PointerAccelerationProfile=1
+ScrollFactor=0.1
+
 [Libinput][51984][8791][Keebio Quefrency Rev. 2 Consumer Control]
 ScrollFactor=2
 

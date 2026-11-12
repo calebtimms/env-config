@@ -1,6 +1,7 @@
 alacritty
 alsa-utils
 amd-ucode
+archlinux-contrib
 arp-scan
 asusctl
 atuin
@@ -48,6 +49,8 @@ lvm2
 man-db
 mangohud
 mpv
+msmtp
+msmtp-mta
 mtools
 networkmanager
 nmap
@@ -77,6 +80,7 @@ python-pyqt6-webengine
 python-tzdata
 rpi-imager
 rsync
+s-nail
 sbctl
 sddm
 sddm-kcm
@@ -100,6 +104,8 @@ wine-mono
 winetricks
 wl-clip-persist
 wl-clipboard
+xclip
+xdotool
 yt-dlp
 zoxide
 zsh
