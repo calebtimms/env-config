@@ -1,0 +1,19 @@
+# msmtp: the sendmail (msmtp-mta) that s-nail's mail/mailx hands mail to; noti.py mails through it.
+#
+# Gmail takes an app password (myaccount.google.com/apppasswords; needs 2-Step Verification). It is not kept here:
+# msmtp finds it in the KDE wallet (libsecret), where it is stored once with
+#   secret-tool store --label=msmtp host smtp.gmail.com service smtp user calebtimms@gmail.com
+# Test: printf 'Subject: msmtp test\n\nIt works.\n' | msmtp calebtimms@gmail.com (msmtp -d shows the SMTP dialog)
+
+defaults
+auth on
+tls on
+logfile ~/.cache/msmtp.log
+
+account gmail
+host smtp.gmail.com
+port 587
+from calebtimms@gmail.com
+user calebtimms@gmail.com
+
+account default : gmail

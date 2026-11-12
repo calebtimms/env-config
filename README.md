@@ -20,7 +20,7 @@ The repository separates environment data into three broad categories:
 Configuration that can generally be restored safely:
 
 - installed packages
-- Zsh / Vim / Kitty / Git dotfiles
+- Zsh / Vim / tmux / Kitty / Git / msmtp dotfiles
 - Vim plugins
 - KDE / Plasma preferences
 - GTK configuration
@@ -86,6 +86,8 @@ env-config/
 ├── dotfiles/
 │   ├── git/
 │   ├── kitty/
+│   ├── msmtp/          noti.py's mail: Gmail via msmtp-mta and s-nail
+│   ├── tmux/
 │   ├── vim/
 │   └── zsh/
 │
@@ -102,7 +104,12 @@ env-config/
 │
 ├── scripts/
 │   ├── bootstrap
-│   └── env-save
+│   ├── env-save
+│   ├── git-helpers.py      gdc/gdo/gdco/gdoo diffs and gla/glf/glo logs (.zshrc)
+│   ├── noti.py             noti and tn: background runs, their logs and email
+│   ├── tmux-even.py        tmux prefix Q: even out every split
+│   ├── tmux-kill.py        tmux-kill: save a tmux server, then end it
+│   └── tmux-project        tmux prefix g / tp: project sessions
 │
 ├── state/
 │   ├── ...
@@ -265,10 +272,19 @@ Restores GNU Stow-managed configuration for:
 
 - Zsh
 - Vim
+- tmux
 - Kitty
 - Git
+- msmtp
 
 Existing conflicting files are backed up before replacement.
+
+msmtp's Gmail app password is not in the repository; msmtp reads it from the
+KDE wallet. After a restore, store it again (it prompts for the password):
+
+```bash
+secret-tool store --label=msmtp host smtp.gmail.com service smtp user calebtimms@gmail.com
+```
 
 ---
 
@@ -297,8 +313,10 @@ saved branch.
 
 A plugin saved with local modifications (`DIRTY` in the inventory) needs a
 matching `patches/vim-<plugin>.patch`. Bootstrap applies it after checkout and
-stops if the patch is missing or doesn't apply cleanly. Currently the only one
-is the Vim Obsession compatibility modification:
+stops if the patch is missing or doesn't apply cleanly. The only one,
+the Vim Obsession compatibility modification, is needed only by inventories
+saved before 2026-11-12: upstream 5d63e5b writes Vim 9.2's vim9script sessions
+itself, and `ob-fix` (`.zshrc`) brought the clone up to it, clean.
 
 ```text
 patches/vim-obsession.patch

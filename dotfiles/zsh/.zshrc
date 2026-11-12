@@ -7,9 +7,16 @@ typeset -U path fpath
 path-prepend() { [[ -d $1 ]] && path=($1 $path) }
 path-prepend ~/env-config/scripts
 
-export EDITOR=vim SUDO_EDITOR=vim
+# Programs (git commit, sudoedit, Claude Code's Ctrl+E) run Vim with OBSESSION_AUTO=0, which stops it from tracking,
+# and so overwriting, the session saved for that directory.
+export EDITOR='env OBSESSION_AUTO=0 vim' SUDO_EDITOR='env OBSESSION_AUTO=0 vim'
 export OBSESSION_ROOT=${OBSESSION_ROOT:-$HOME/obsessions}
+# Man pages open in read-only Vim (Vim's :MANPAGER). MANROFFOPT keeps groff to plain overstrikes that Vim cleans up: no
+# SGR escapes (-c) and no groff 1.23 hyperlinks (-rU0).
 export MANROFFOPT='-c -rU0' MANPAGER='env VIM_MANPAGER=1 vim +MANPAGER --not-a-term -'
+# noti (noti.py) emails NOTI_EMAIL and keeps its logs under NOTI_LOG_DIR.
+export NOTI_EMAIL=${NOTI_EMAIL:-calebtimms@gmail.com}
+NOTI_LOG_DIR=${NOTI_LOG_DIR:-$HOME/.noti_logs}
 
 # === tmux =====================================================================
 # Interactive terminal shells run inside tmux (~/.tmux.conf, the work setup). A terminal attaches to the most recently
@@ -25,7 +32,8 @@ if [[ -z $TMUX && $TMUX_AUTO != 0 && -z $ZSH_EXECUTION_STRING$ZSH_SCRIPT && -t 0
         local s=$(tmux list-sessions -F '#{session_attached} #{session_activity} #{session_name}' 2>/dev/null |
             sort -k1,1n -k2,2nr | head -n 1)
         [[ $TERM == xterm-kitty ]] && print -n '\e]1337;SetUserVar=in_tmux=MQ==\a'   # MQ== is base64 for 1
-        if [[ -n $s ]]; then tmux attach-session -t "=${s#* * }"; else tmux new-session -s main; fi
+        # -A: when another terminal starting at the same moment has just created main, attach to it instead of failing.
+        if [[ -n $s ]]; then tmux attach-session -t "=${s#* * }"; else tmux new-session -A -s main; fi
         (( $? == 0 || SECONDS - start > 3 ))   # ran, then detached or its server ended; a failure to start is quick
     } && exit
     [[ $TERM == xterm-kitty ]] && print -n '\e]1337;SetUserVar=in_tmux\a'   # no value: unset
@@ -34,9 +42,11 @@ fi
 
 # === Options & history ========================================================
 
-setopt autocd extendedglob interactivecomments typesetsilent prompt_subst no_beep globdots
+# No extendedglob at the prompt: ^, # and ~ stay ordinary characters there, so grep ^foo, e ^foo and git show HEAD^
+# work as typed (with it, ^foo expands to every file but foo). Functions here that need it set it locally.
+setopt autocd noextendedglob nomatch notify interactivecomments globdots typesetsilent auto_param_slash prompt_subst no_beep
 HISTFILE=${HISTFILE:-$HOME/.zsh_history} HISTSIZE=1000000 SAVEHIST=1000000
-setopt share_history hist_ignore_dups hist_find_no_dups hist_reduce_blanks hist_verify extended_history
+setopt append_history share_history hist_ignore_dups hist_find_no_dups hist_reduce_blanks hist_verify extended_history
 
 # === Prompt ===================================================================
 
@@ -57,17 +67,16 @@ PROMPT_EOL_MARK=''
 ZSH_COMPLETION_DIR=~/.local/share/zsh/site-functions
 [[ -d $ZSH_COMPLETION_DIR ]] || mkdir -p $ZSH_COMPLETION_DIR
 fpath=($ZSH_COMPLETION_DIR $fpath)
-
-# Full compinit (security audit + fpath rescan) at most once a day. compinit never rewrites an
-# up-to-date dump, so touch it to restart the 24h window.
 autoload -Uz compinit
 _ZCOMPDUMP=${ZDOTDIR:-$HOME}/.zcompdump
-if [[ -n $_ZCOMPDUMP(#qN.mh-24) ]]; then compinit -C -d $_ZCOMPDUMP
-else compinit -d $_ZCOMPDUMP && touch $_ZCOMPDUMP; fi
+# A full compinit at every start (a few ms more than compinit -C): it rebuilds the dump whenever the completions on
+# fpath change, so a command installed since the last shell completes at once.
+compinit -d $_ZCOMPDUMP
 completion-refresh() { rehash; rm -f $_ZCOMPDUMP $_ZCOMPDUMP.zwc; compinit -d $_ZCOMPDUMP }
 
 # List ambiguous matches; never cycle through or auto-accept them.
-unsetopt automenu
+unsetopt recexact automenu menucomplete completealiases
+setopt autolist list_ambiguous
 zstyle ':completion:*' accept-exact false
 zstyle ':completion:*' accept-exact-dirs false
 zstyle ':completion:*' insert-tab false
@@ -150,23 +159,31 @@ _custom-register Shell completion-refresh 'Rebuild Zsh command and completion ca
 # === Line editor ==============================================================
 
 bindkey -e
-zle_highlight+=(paste:none)
+zle_highlight=(${zle_highlight:#paste:*} paste:none)   # replaced, not appended, so each sz leaves one
 
 # Alt+Backspace kills one path segment: "/" is a word boundary for this widget only.
-backward-kill-path-segment() { local WORDCHARS=${WORDCHARS//\/}; zle backward-kill-word }
-zle -N backward-kill-path-segment
+_backward-kill-path-segment() { local WORDCHARS=${WORDCHARS//\/}; zle backward-kill-word }
+zle -N _backward-kill-path-segment
+
+# Alt+j / Alt+k step through this shell's own history: the lines typed in this pane, then what history held when it
+# started. Up / Down step through every shell's, which share_history imports as they run. -n sets the mode for the one
+# step (set-local-history reads only its numeric argument), so Up / Down are never left local.
+_up-line-or-local-history()   { zle set-local-history -n 1; zle up-line-or-history; zle set-local-history -n 0 }
+_down-line-or-local-history() { zle set-local-history -n 1; zle down-line-or-history; zle set-local-history -n 0 }
+zle -N _up-line-or-local-history; zle -N _down-line-or-local-history
 
 () {
     local key widget
     for key widget in \
         '^H'  beginning-of-line       '^L'  end-of-line \
-        '^[h' vi-backward-word        '^[l' vi-forward-word \
-        '^[j' up-line-or-history      '^[k' down-line-or-history \
+        '^[h' backward-char           '^[l' forward-char \
+        '^[H' vi-backward-word        '^[L' vi-forward-word \
+        '^[j' _up-line-or-local-history '^[k' _down-line-or-local-history \
         '^[J' beginning-of-history    '^[K' end-of-history \
         '^W'  backward-kill-word      '^U'  backward-kill-line \
         '^[d' kill-word               '^[x' backward-kill-word \
         '^[u' undo                    '^[r' redo \
-        '^[^?' backward-kill-path-segment
+        '^[^?' _backward-kill-path-segment
     do bindkey -M emacs $key $widget; done
 }
 
@@ -183,7 +200,8 @@ fi
 (( $+commands[atuin] )) && { export ATUIN_NOBIND=true; eval "$(atuin init zsh)" }
 
 # === Tab completion ===========================================================
-# Tab: a word containing ** → fzf; a word containing * ? or [ → glob completion; otherwise → normal.
+# Tab: a word ending in ** after the command → fzf; a word containing * ? or [ → glob completion (src/**/*.v
+# included); otherwise → normal.
 # Glob completion never expands the line. The cursor acts as a trailing *, as in normal completion:
 # Tab fills in whatever every match has in common next, then lists the matches (never cycles).
 #   *.lat<Tab> → *.latest     .venv*/li<Tab> → .venv*/lib     Do*<Tab> → lists Documents Downloads
@@ -210,10 +228,11 @@ _glob-expand-path() {
 }
 
 _glob-list-completer() {
-    setopt localoptions extendedglob
+    # The typed glob is matched with the prompt's own options, as the command line will expand it: no
+    # extendedglob there, so ^, # and ~ in it stay ordinary characters here too.
     local dir leaf base hit name tail REPLY
     local -i nparents
-    local -a parents dirs files dir_words file_words match mbegin mend
+    local -a parents dirs files dir_words file_words
     local -A count dir_count
     compstate[list]='list force'
     # parents: glob-quoted directory prefixes ending in / ('' for the current directory).
@@ -221,7 +240,14 @@ _glob-list-completer() {
         dir=${PREFIX%/*} leaf=${PREFIX##*/}
         _glob-expand-path $dir
         if [[ $dir == *[\*\?\[]* ]]; then
-            parents=(${~REPLY}(N-/))
+            if [[ $REPLY == (*/|)\*\*(\*|) ]]; then
+                # A last component ** (or ***) is the recursive glob, as in src/**/*.v: dir itself and every
+                # directory below it; a bare ** starts at the current directory, as ./
+                parents=(${~REPLY}/(N-/)) parents=(${parents%/})
+                [[ $REPLY == \*\*(\*|) ]] && parents=(. $parents)
+            else
+                parents=(${~REPLY}(N-/))
+            fi
             (( $#parents )) || { compadd -x "no directory matches ${dir//\%/%%}"; return 1 }
             parents=(${(b)^parents}/)
         else
@@ -243,7 +269,7 @@ _glob-list-completer() {
     # plus the rest of the name after what the typed glob matched (*.lat + est), so the common part of
     # those words is what Tab fills in.
     for name in ${(ko)count}; do
-        [[ $name == (#b)${~leaf}(*) ]] && tail=$match[-1] || tail=
+        [[ $name == ${~leaf}* ]] && tail=${name##${~leaf}} || tail=
         if (( ${dir_count[$name]:-0} == $count[$name] )); then dirs+=($name) dir_words+=("$leaf${tail:+${(q)tail}}")
         else files+=($name) file_words+=("$leaf${tail:+${(q)tail}}"); fi
     done
@@ -265,9 +291,13 @@ _glob-list-completer() {
 zle -C _glob-list-widget list-choices _glob-list-completer
 
 _smart-tab-completion() {
-    local word
-    [[ $LBUFFER == *[[:space:]] ]] || word=${${(z)LBUFFER}[-1]}
-    if [[ $word == *'**'* ]] && (( $+widgets[_fzf-completion-original] )); then zle _fzf-completion-original
+    local word trigger=${FZF_COMPLETION_TRIGGER-'**'}
+    local -a words
+    [[ $LBUFFER == *[[:space:]] ]] || { words=(${(z)LBUFFER}); word=$words[-1] }
+    # fzf completes only a word that ends in its trigger after a command word; given any other word it falls back to
+    # expand-or-complete, which would expand a ** glob (src/**/*.v) into the line, so those get glob completion.
+    if [[ -n $trigger && $word == *$trigger ]] && (( $#words > 1 && $+widgets[_fzf-completion-original] )); then
+        zle _fzf-completion-original
     elif [[ $word == *[\*\?\[]* ]]; then zle _glob-list-widget
     else zle complete-word; fi
 }
@@ -276,12 +306,19 @@ bindkey -M emacs '^I' _smart-tab-completion
 
 # === Pickers ==================================================================
 # ^F all history · ^R this directory's history · ^T files · ^G directories. The same keys switch
-# pickers inside fzf (the active picker's key closes it); ^D deletes the highlighted history entry.
+# pickers inside fzf (the active picker's key closes it); ^X deletes the highlighted history entry, and ^D picks another
+# directory to search (^R, ^T, ^G; from ^F it opens that directory's history). The picked directory carries across
+# picker switches until the picker closes.
 
+# _atuin-history-rows [atuin search args]: one NUL-terminated row per distinct command, newest first: the command, then
+# the line fzf shows, in two fields, its columns and the command as shown, so that fzf searches only that command
+# (--nth): a query never matches a row by its age, status, duration or directory, and ^foo anchors to the command's
+# start. fzf draws the \x1f between them as nothing. NULs (atuin --print0, fzf --read0) keep a multi-line command one
+# row; it shows on one line, ↵ marking its line breaks, and the whole command is what is picked.
 _atuin-history-rows() {
     (( $+commands[atuin] )) || return 1
-    atuin search "$@" --reverse --human --format $'{command}\x1f{relativetime}\x1f{exit}\x1f{duration}\x1f{directory}' |
-        awk -F $'\x1f' -v OFS=$'\x1f' -v home="$HOME" '
+    atuin search "$@" --reverse --human --print0 --format $'{command}\x1f{relativetime}\x1f{exit}\x1f{duration}\x1f{directory}' |
+        awk -F $'\x1f' -v OFS=$'\x1f' -v RS='\0' -v ORS='\0' -v home="$HOME" '
             BEGIN { reset = "\033[0m"; dim = "\033[90m"; cyan = "\033[36m"; white = "\033[1;37m" }
             function short(dir) {
                 if (dir == home) dir = "~"
@@ -292,49 +329,150 @@ _atuin-history-rows() {
                 if ($3 == "0")                  { status = "✓";     color = "\033[32m" }
                 else if ($3 == "-1" || $3 == "") { status = "?";     color = dim }
                 else                            { status = "✗ " $3; color = "\033[31m" }
-                print $1, sprintf("%s%-7s%s │ %s%-8s%s │ %s%-10s%s │ %s%-28s%s │ %s%s%s",
-                    dim, $2, reset, color, status, reset, dim, $4, reset, cyan, short($5), reset, white, $1, reset)
+                shown = $1; gsub(/\n/, " ↵ ", shown)
+                print $1, sprintf("%s%-7s%s │ %s%-8s%s │ %s%-10s%s │ %s%-28s%s │ ",
+                    dim, $2, reset, color, status, reset, dim, $4, reset, cyan, short($5), reset), white shown reset
             }'
 }
 
-# Delete every history entry exactly equal to $1 (regex-escaped, including "/" for atuin's r/…/).
+# Delete every history entry exactly equal to $1, through atuin's r/…/ regex: regex characters are escaped, and "/" is
+# written [/], since atuin ends the regex at the first "/ " and an escaped \/ would still contain one.
 _atuin-history-delete-exact() {
-    local regex=${1//(#m)[][\\.^\$|?*+(){}\/]/\\$MATCH}
+    setopt localoptions extendedglob
+    local regex=${1//(#m)[][\\.^\$|?*+(){}]/\\$MATCH}
+    regex=${regex//\//[/]}
     [[ -n $regex ]] && atuin search --delete --search-mode fuzzy -- "r/^${regex}$/"
+}
+
+# _fzf-root-step list <typed path> | result | tab: the ^D directory picker's list and its event steps. fzf runs it in a
+# plain `zsh -f` from its body in $_FZF_ROOT_STEP, so it needs no other function. "list" records the directory part of
+# the typed path in $_FZF_ROOT_STATE and prints it, its parent, and its subdirectories, each written as typed so the
+# query keeps matching and ending in /, then $_FZF_ROOT_HISTORY (history pickers: Atuin's directories). "result" runs
+# after every search and relists when the typed directory part is not the one recorded: fzf keeps one pending search
+# request, so a reload asked for during a burst of keys can be replaced by the next key's search, and this retries it.
+# "tab" completes like the shell: the subdirectory names starting with the typed name complete to their longest common
+# prefix, or into the directory when only one is left; when no name starts with it, only a single fuzzy match completes.
+_fzf-root-step() {
+    local d r p n leaf
+    local -a names
+    if [[ $1 == list ]]; then d=${(M)2##*/}; else d=${(M)FZF_QUERY##*/}; fi
+    r=$d; [[ $r == \~/* ]] && r=$HOME${r#\~}
+    case $1 in
+        list)
+            [[ -z $_FZF_ROOT_STATE ]] || print -r -- "$d" >| $_FZF_ROOT_STATE
+            print -r -- ${d:-./}
+            case ${${d%/}:t} in
+                ''|.|..|\~) [[ $d == / ]] || print -r -- ${d#./}../ ;;
+                *)          p=${${d%/}:h}; print -r -- ${p%/}/ ;;
+            esac
+            names=(${r:-./}*(N-/D:t)); names=(${names:#(.git|.cache)})
+            (( $#names )) && print -rl -- $d${^names}/
+            [[ -z $_FZF_ROOT_HISTORY ]] || print -r -- $_FZF_ROOT_HISTORY ;;
+        result)
+            [[ -r $_FZF_ROOT_STATE ]] || return 0
+            p=$(<$_FZF_ROOT_STATE)
+            if [[ $p != "$d" ]]; then
+                print -r -- "reload-sync(set -- list {q}; eval \"\$_FZF_ROOT_STEP\")"
+            elif [[ $p != "$FZF_BORDER_LABEL" ]]; then
+                print -r -- "change-border-label:$p"
+            fi ;;
+        tab)
+            leaf=${FZF_QUERY:$#d}
+            names=(${r:-./}*(N-/D:t) ..); names=(${(M)${names:#(.git|.cache)}:#${(b)leaf}*})
+            if (( $#names == 1 )); then
+                p=$d$names[1]/
+            elif (( $#names > 1 )); then
+                p=$names[1]
+                for n in $names[2,-1]; do while [[ $n != ${(b)p}* ]]; do p=${p[1,-2]}; done; done
+                p=$d$p
+            elif (( FZF_MATCH_COUNT == 1 )); then
+                p=${FZF_CURRENT_ITEM-}
+            fi
+            [[ -n $p && $p != "$FZF_QUERY" ]] && print -r -- "change-query:$p" ;;
+    esac
+    return 0
+}
+
+# _fzf-pick-root <picker mode>: the ^D directory picker. It starts in the current directory; typing a path lists its
+# directory, Tab completes like the shell (see _fzf-root-step), and Enter picks the highlighted directory. History modes
+# also list every directory that has Atuin history, newest first, even ones since deleted. Sets REPLY to the pick as
+# typed ('' for the current directory); returns 1 when closed with Esc or ^D, or when the pick is not a directory (or a
+# listed history one).
+_fzf-pick-root() {
+    local mode=$1 result pick dir d
+    local -i st
+    local -a lines dirs
+    local -x _FZF_ROOT_STEP=$functions[_fzf-root-step] _FZF_ROOT_HISTORY=
+    local -x _FZF_ROOT_STATE=$(mktemp "${TMPDIR:-/tmp}/fzf-root.XXXXXX" 2>/dev/null)
+    if [[ $mode == *history ]]; then
+        for d in ${(u)${(f)"$(atuin search --reverse --format '{directory}' 2>/dev/null)"}}; do
+            case $d in
+                "$HOME")   d='~' ;;
+                "$HOME"/*) d="~${d#$HOME}" ;;
+            esac
+            dirs+=(${d%/}/)
+        done
+        _FZF_ROOT_HISTORY=${(F)dirs}
+    fi
+    result=$(_fzf-root-step list |
+        fzf --with-shell="${commands[zsh]:-zsh} -fc" --print-query --prompt='Directory> ' \
+            --header='Type a path or pick one  │  Tab: Complete  Enter: Search There  Ctrl+D/Esc: Back' \
+            --bind='result:transform:set -- result; eval "$_FZF_ROOT_STEP"' \
+            --bind='tab:transform:set -- tab; eval "$_FZF_ROOT_STEP"' \
+            --bind=ctrl-d:abort)
+    st=$?
+    [[ -z $_FZF_ROOT_STATE ]] || rm -f -- $_FZF_ROOT_STATE
+    (( st == 0 || st == 1 )) || return 1
+    lines=("${(@f)result}")   # the query, then the highlighted directory, if any
+    pick=${lines[2]:-$lines[1]}
+    [[ $pick == / ]] || pick=${pick%/}
+    [[ -n $pick ]] || return 1
+    [[ $pick == . ]] && { REPLY=; return 0 }
+    dir=$pick; [[ $dir == \~(/*|) ]] && dir=$HOME${dir#\~}
+    [[ -d $dir || ( $mode == *history && -n ${lines[2]-} ) ]] || return 1
+    [[ ${dir:a} == "$PWD" ]] && pick=
+    REPLY=$pick
 }
 
 _fzf-switcher() {
     (( $+commands[fzf] )) || return 1
-    local mode=$1 next result label fd preview file cols
+    local mode=$1 next key result label fd preview file cols root dir query
     local -a lines picked cwd extra
     local -A needs=(history atuin directory_history atuin files fd directories fd)
     local -A key_mode=(ctrl-f history ctrl-r directory_history ctrl-t files ctrl-g directories)
     local nav='Ctrl+F: All History  Ctrl+R: Directory History  Ctrl+T: Files  Ctrl+G: Directories'
-    local search="Search: fuzzy=foo  exact='foo  word='foo'" logic='exclude=!foo  │  AND=foo bar  OR=foo | bar'
+    local search="Search: fuzzy=foo  exact='foo  word='foo'  start=^foo  end=foo\$" logic='exclude=!foo  │  AND=foo bar  OR=foo | bar'
     printf -v cols '%-7s │ %-8s │ %-10s │ %-28s │ %s' AGE STATUS DURATION DIRECTORY COMMAND
     while true; do
         (( $+commands[$needs[$mode]] )) || return 1
+        # root: the directory ^D picked, as typed ('' for the current one); dir: the same with ~ expanded.
+        dir=$root; [[ $dir == \~(/*|) ]] && dir=$HOME${dir#\~}
         if [[ $mode == *history ]]; then
-            cwd=(); [[ $mode == directory_history ]] && cwd=(--cwd .)
+            # Atuin records each command's logical $PWD, so a picked directory is matched by its absolute logical path.
+            cwd=(); [[ $mode == directory_history ]] && cwd=(--cwd ${${root:+${dir:a}}:-.})
             result=$(_atuin-history-rows $cwd |
-                fzf --ansi --scheme=history --no-hscroll --delimiter=$'\x1f' --with-nth=2 --accept-nth=1 \
-                    --header="$nav  │  Ctrl+D: Delete"$'\n'"$search  $logic"$'\n'"$cols" \
-                    --prompt="${cwd:+Directory }History> " --expect=ctrl-f,ctrl-r,ctrl-t,ctrl-g,ctrl-d)
+                fzf --ansi --scheme=history --no-hscroll --read0 --print0 --delimiter=$'\x1f' --with-nth=2.. --nth=2.. --accept-nth=1 \
+                    --header="$nav  │  Ctrl+D: Directory  Ctrl+X: Delete"$'\n'"$search  $logic"$'\n'"$cols" \
+                    --prompt="${cwd:+Directory }History> " --border-label=${cwd:+${root:+ $root }} \
+                    --print-query --query=$query --expect=ctrl-f,ctrl-r,ctrl-t,ctrl-g,ctrl-d,ctrl-x)
+            lines=("${(@0)${result%$'\0'}}")   # the query, the key pressed, then the command; each ended by a NUL
         else
+            [[ -d $dir ]] || root= dir=
             if [[ $mode == files ]]; then
                 label=Files fd="$commands[fd] --type f" extra=(--multi)
-                if (( $+commands[bat] )); then preview="$commands[bat] --color=always --style=numbers -- {} 2>/dev/null"
-                else preview="sed -n '1,250p' -- {} 2>/dev/null"; fi
+                if (( $+commands[bat] )); then preview="$commands[bat] --style=numbers --color=always -- {}"
+                else preview="sed -n '1,200p' -- {}"; fi
             else
                 label=Directories fd="$commands[fd] --type d" extra=()
-                if (( $+commands[eza] )); then preview="$commands[eza] --tree --level=2 --icons=auto --color=always -- {} 2>/dev/null"
-                elif (( $+commands[tree] )); then preview="$commands[tree] -a -L 2 {} 2>/dev/null"
+                if (( $+commands[eza] )); then preview="$commands[eza] --tree --level=2 --color=always -- {}"
+                elif (( $+commands[tree] )); then preview="$commands[tree] -a -L 2 {}"
                 else preview='find {} -maxdepth 2 -print 2>/dev/null | head -200'; fi
             fi
-            fd+=' --hidden --exclude .git --exclude .cache'
+            fd+=' --hidden --exclude .git --exclude .cache'${root:+" --search-path ${(q)dir}"}
             # ^L toggles following symlinks and ^O toggles ignored files; the prompt carries the state.
             result=$(FZF_DEFAULT_COMMAND=$fd fzf $extra --scheme=path --no-hscroll --prompt="$label> " \
-                --header="$nav  │  Ctrl+L: Links  Ctrl+O: Ignored  Ctrl+P: Preview"$'\n'"$search  start=^foo  end=foo\$  $logic" \
+                --header="$nav  │  Ctrl+D: Directory  Ctrl+L: Links  Ctrl+O: Ignored  Ctrl+P: Preview"$'\n'"$search  $logic" \
+                --border-label=${root:+ $root } --print-query --query=$query \
                 --preview=$preview --preview-window='right:50%:hidden' \
                 --bind='ctrl-p:toggle-preview,alt-k:preview-down,alt-j:preview-up,alt-h:preview-top,alt-g:preview-bottom' \
                 --bind='alt-d:preview-half-page-down,alt-u:preview-half-page-up' \
@@ -350,18 +488,24 @@ _fzf-switcher() {
                     '$label+Links> ')         echo 'change-prompt($label+Links+Ignored> )+reload($fd --follow --no-ignore)' ;;
                     '$label+Links+Ignored> ') echo 'change-prompt($label+Links> )+reload($fd --follow)' ;;
                 esac" \
-                --expect=ctrl-f,ctrl-r,ctrl-t,ctrl-g </dev/tty)
+                --expect=ctrl-f,ctrl-r,ctrl-t,ctrl-g,ctrl-d </dev/tty)
+            lines=("${(@f)result}")   # the query, the key pressed, then the picks
         fi
         [[ -n $result ]] || break
-        lines=("${(@f)result}") picked=("${(@)lines[2,-1]}")
-        next=${key_mode[$lines[1]]-}
+        query= key=${lines[2]-} picked=("${(@)lines[3,-1]}")
+        next=${key_mode[$key]-}
         if [[ -n $next ]]; then
             (( $+commands[$needs[$next]] )) || continue
             [[ $next == $mode ]] && break
             mode=$next; zle reset-prompt; zle -R; continue
-        elif [[ $lines[1] == ctrl-d ]]; then
+        elif [[ $key == ctrl-x ]]; then
             [[ -n ${picked[1]-} ]] && _atuin-history-delete-exact $picked[1]
             continue
+        elif [[ $key == ctrl-d ]]; then
+            # The search text survives the trip; ^F becomes the picked directory's history.
+            query=$lines[1]
+            _fzf-pick-root $mode && { root=$REPLY; [[ $mode == history ]] && mode=directory_history }
+            zle reset-prompt; zle -R; continue
         fi
         (( $#picked )) || break
         case $mode in
@@ -396,54 +540,179 @@ _tmux-scrollback() {
     tmux capture-pane -p -J -S - -t $TMUX_PANE | env VIM_SCROLLBACK=1 vim -R --not-a-term -
     zle reset-prompt; zle -R
 }
-zle -N _tmux-scrollback
-bindkey -M emacs '^[[99~' _tmux-scrollback
 
-# tmux's prefix r and Z write a new stamp beside the tmux sockets and run sz in every shell idle at its prompt. A shell
-# that was busy notices the new stamp when its next prompt starts and runs sz itself.
+# tmux's prefix r and Z write a new stamp beside the tmux sockets, then send ESC [98~ (no key does) to every zsh idle at
+# its prompt that set the pane's @zsh-reload-key (below; a shell from an older zshrc gets M-q sz Enter instead). At a
+# primary prompt that runs sz, with the half-typed line set aside (push-line) and restored afterwards. The same check
+# runs as each line starts (line-init), so a shell that was busy runs sz itself at its next prompt. Only at a primary
+# prompt: in the middle of a multi-line command (a PS2 continuation, vared, select) it does nothing, and the reload
+# waits for the next primary prompt instead of typing sz into a quoted string or a loop.
 _zshrc_stamp=${TMUX:+${${TMUX%%,*}:h}/zshrc-reload} _zshrc_loaded=
 [[ -n $_zshrc_stamp ]] && { read -r _zshrc_loaded < $_zshrc_stamp } 2>/dev/null
 _zshrc-reload-check() {
+    [[ $CONTEXT == start && -z $PREBUFFER ]] || return 0
     local stamp
     [[ -n $_zshrc_stamp ]] && { read -r stamp < $_zshrc_stamp } 2>/dev/null && [[ $stamp != $_zshrc_loaded ]] || return 0
     _zshrc_loaded=$stamp   # first, so a ~/.zshrc that fails to load is not retried at every prompt
     zle push-line; BUFFER=sz; zle accept-line
 }
+zle -N _tmux-scrollback; zle -N _zshrc-reload-check
+bindkey -M emacs '^[[99~' _tmux-scrollback      # prefix e
+bindkey -M emacs '^[[98~' _zshrc-reload-check   # prefix r, Z
 autoload -Uz add-zle-hook-widget && add-zle-hook-widget line-init _zshrc-reload-check
+# Tells tmux that this shell takes ESC [98~; at every load, so a shell started from an older zshrc sets it once sz
+# reloads it.
+[[ -n $TMUX_PANE ]] && command tmux set -p -t $TMUX_PANE @zsh-reload-key 1 2>/dev/null
 
 # === Files ====================================================================
+# Modified-time listings put the newest entry last (next to the prompt); ltr/lrt reverse that.
 
 if (( $+commands[eza] )); then
+    # The work palette, also at home: eza's default plain blue is too dark to read on black in xfce4-terminal's default
+    # palette, so directories and mount points are orange (256-color 208), and executables green, all without eza's
+    # bold (mount points still underlined). Dates, lg's Git "modified" flag and SELinux users are sky blue (75).
+    # Compressed files and sizes in GiB lose the palette's dark red for #f33636 (24-bit; a terminal without 24-bit
+    # color gets the nearest red). An EZA_COLORS from the environment wins; the one this file set is replaced at each
+    # load, so sz picks up a change here.
+    [[ -z $EZA_COLORS || $EZA_COLORS == "$_eza_colors" ]] && {
+        _eza_colors='di=38;5;208:mp=4;38;5;208:ex=32:da=38;5;75:gm=38;5;75:Su=38;5;75'
+        _eza_colors+=':co=38;2;243;54;54:ng=38;2;243;54;54:ug=38;2;243;54;54'
+        export EZA_COLORS=$_eza_colors
+    }
+    # With no path argument, eza lists the names it reads from stdin whenever stdin isn't a terminal (a `noti`
+    # job's /dev/null, a pipe, a while-read loop): it listed nothing, or ate the loop's input. So feed it .
+    # then; a path argument still takes precedence, and --stdin still reads the real stdin.
+    _eza-ls() { if [[ -t 0 ]] || (( $@[(I)--stdin] )); then eza "$@"; else print . | eza "$@"; fi }
+    compdef _eza-ls=eza
     _custom-alias Files \
-        ls  'eza -a --icons=auto'                            'List all files using eza when available.' \
-        ll  'eza -la --icons=auto'                           'Long file listing including hidden entries.' \
-        lt  'eza -la --icons=auto --sort=modified'           'Long listing sorted newest first.' \
-        ltr 'eza -la --icons=auto --sort=modified --reverse' 'Long listing sorted oldest first.' \
-        lg  'eza -la --git --icons=auto'                     'Long eza listing with Git status.' \
-        et  'eza --tree --icons=auto'                        'Show an eza directory tree.'
+        ls  '_eza-ls -a'                            'List all files with eza.' \
+        ll  '_eza-ls -la'                           'Long file listing with eza.' \
+        lt  '_eza-ls -la --sort=modified'           'Long listing by modified time, newest last.' \
+        ltr '_eza-ls -la --sort=modified --reverse' 'Long listing by modified time, newest first.' \
+        lrt '_eza-ls -la --sort=modified --reverse' 'Compatibility alias for ltr.' \
+        lg  '_eza-ls -la --git'                     'Long eza listing with Git status.' \
+        et  '_eza-ls --tree'                        'Display an eza directory tree.'
 else
     _custom-alias Files \
-        ls  'command ls -AF --color=auto'    'List all files using eza when available.' \
-        ll  'command ls -lAF --color=auto'   'Long file listing including hidden entries.' \
-        lt  'command ls -lAFt --color=auto'  'Long listing sorted newest first.' \
-        ltr 'command ls -lAFrt --color=auto' 'Long listing sorted oldest first.'
+        ls  'command ls -AF --color=auto'    'List all files with GNU ls.' \
+        ll  'command ls -lAF --color=auto'   'Long file listing.' \
+        lt  'command ls -lAFrt --color=auto' 'Long listing by modified time, newest last.' \
+        ltr 'command ls -lAFt --color=auto'  'Long listing by modified time, newest first.' \
+        lrt 'command ls -lAFt --color=auto'  'Compatibility alias for ltr.'
 fi
 (( $+commands[tree] )) && _custom-alias Files tree 'tree -a' 'Show directory trees including hidden entries.'
 (( $+commands[dust] )) && _custom-alias Files dust 'dust -r' 'Show disk usage in reverse size order.'
 
+# glow [options] [FILE | URL | -]: Markdown rendered by glow, read in Vim like a man page: read-only, whose VIM_ANSI
+# viewer (the vimrc) turns glow's colors into highlighting, so Vim's keys, searches and yanks see plain text and ;a comes
+# back here. Lines wrap at the window's width, and when the window changes size (a tmux pane zoomed) the viewer has glow
+# render the page again at the new width (VIM_ANSI_CMD); -w gives a fixed width instead. Markdown piped in is kept in a
+# temporary file meanwhile. Piped, glow ignores its config file and has no auto style, so that file's style (else dark)
+# is passed on; -s given here still wins. glow runs as it is for its commands (config, completion, help), its file
+# browser (no file, or a directory), -p, -t, -h and -v, and when its output is not a terminal.
+if (( $+commands[glow] )); then
+    glow() {
+        local conf=${XDG_CONFIG_HOME:-$HOME/.config}/glow/glow.yml src name style out tmp
+        local -i i own=0
+        local -a run width=(-w $COLUMNS)
+        [[ -t 1 && $1 != (config|completion|help) ]] || own=1
+        for (( i = 1; i <= $#; i++ )); do
+            case ${@[i]} in
+                --config)              conf=${@[i+1]}; (( i++ )) ;;
+                --config=*)            conf=${@[i]#*=} ;;
+                -w|--width)            width=(); (( i++ )) ;;
+                -w?*|--width=*)        width=() ;;
+                -s|--style)            (( i++ )) ;;
+                -p|--pager|-t|--tui|-h|--help|-v|--version) own=1 ;;
+                -)                     src=- ;;
+                -*)                    ;;
+                *)                     src=${@[i]}; [[ -d $src ]] && own=1 ;;
+            esac
+        done
+        [[ -n $src || ! -t 0 ]] || own=1   # no file and nothing piped in: the file browser
+        (( own )) && { command glow "$@"; return }
+        [[ -r $conf ]] && style=$(sed -nE "s/^style:[[:space:]]*[\"']?([^\"' #]+).*/\1/p" $conf)
+        [[ -n $style && $style != auto ]] || style=dark
+        name=${${src:#-}:-stdin}
+        {
+            # Markdown piped in goes to a file that each rendering reads: glow reads a stdin that is not a terminal
+            # instead of its file, so it never gets one.
+            if [[ -z $src || $src == - ]]; then
+                tmp=$(mktemp ${TMPDIR:-/tmp}/glow.XXXXXX) && cat > $tmp || return
+                if [[ -n $src ]]; then set -- "${@/#%-/$tmp}"; else set -- "$@" $tmp; fi
+            fi
+            run=($commands[glow] -s ${style/#\~/$HOME} "$@")
+            out=$("${run[@]}" $width </dev/null) || return
+            print -r -- $out |
+                env VIM_ANSI="glow ${name:t}" VIM_ANSI_CMD=${width:+${(j: :)${(qq)run}}} vim -R --not-a-term -
+        } always {
+            [[ -n $tmp ]] && rm -f $tmp
+        }
+    }
+    _custom-register Files glow 'Read Markdown rendered by glow in Vim, like a man page.'
+fi
+
 # === Search ===================================================================
 
 _custom-alias Search grep 'grep --color=auto' 'Run GNU grep with automatic color.'
-# grep's "file\0line:text" (ANSI-colored) becomes "file : line : text".
-_grep-pretty() { perl -pe 'BEGIN { $ansi = qr/\e\[[0-9;]*[A-Za-z]/ } s/\0/ : /; s/( : (?:$ansi)*[0-9]+(?:$ansi)*):/$1 : /' }
-e()  { grep -Z -EHsiInr --color=always "$@" | _grep-pretty }
-ep() { grep -Z -EHsiIn --color=always "$@" | _grep-pretty }
-z()  { zgrep -HsiIn --color=always "$@" | _grep-pretty }
+# grep -Z's "file\0line:text" (ANSI-colored) becomes "file : line : text". zgrep rejects -Z, so for z
+# the file name ends at the first ":" in grep's separator color instead.
+_grep-pretty() { perl -pe 'BEGIN { $ansi = qr/\e\[[0-9;]*[A-Za-z]/ } s/\0|\e\[[0-9;]*m\e\[K:\e\[m\e\[K/ : /; s/( : (?:$ansi)*[0-9]+(?:$ansi)*):/$1 : /' }
+# e, er, ep and z split their arguments like GNU grep does it, so after -e/-f/--regexp/--file every operand is a file
+# rather than the pattern. e searches only the files directly in directory operands (default .) and er recurses
+# through them; ep (grep) and z (zgrep) take files only, skipping directories, and read stdin when there are none.
+# Patterns are extended regexes unless a matcher option (-F, -G, -P, ...) is given, since grep rejects two matchers.
+_e-grep() {  # e|er|ep|z args...
+    setopt localoptions extendedglob
+    local name=$1; shift
+    local -a opts operands files; local a pat re=-E
+    while (( $# )); do
+        a=$1; shift
+        case $a in
+            --) operands+=("$@"); break ;;
+            --(regexp|file)=*) pat=1; opts+=("$a") ;;
+            --(regexp|file)) pat=1; opts+=("$a" "$1"); shift $(( $# > 0 )) ;;
+            --(max-count|after-context|before-context|context|directories|devices|include|exclude|exclude-from|exclude-dir|label|binary-files|group-separator))
+                opts+=("$a" "$1"); shift $(( $# > 0 )) ;;
+            --(extended-regexp|basic-regexp|perl-regexp|fixed-strings)) re=; opts+=("$a") ;;
+            --*) opts+=("$a") ;;
+            -?*) opts+=("$a")
+                [[ $a == -[^efmABCdD]#[EFGP]* ]] && re=
+                # In a bundle such as -iA3 or -iA 3, the first letter that takes an argument takes the rest of the
+                # word, or else the next word.
+                if [[ $a == (#b)-[^efmABCdD]#([efmABCdD])(*) ]]; then
+                    [[ $match[1] == [ef] ]] && pat=1
+                    [[ -z $match[2] ]] && { opts+=("$1"); shift $(( $# > 0 )) }
+                fi ;;
+            *) operands+=("$a") ;;
+        esac
+    done
+    if [[ -z $pat ]]; then
+        (( $#operands )) || { print "Usage: $name <pattern> [file${${name:#(ep|z)}:+|dir}...]"; return 1 }
+        opts+=(-e "$operands[1]"); shift operands
+    fi
+    case $name in
+        e)  (( $#operands )) || files=(*(DN-.))
+            for a in "${operands[@]}"; do
+                if [[ -d $a ]]; then files+=(${a%/}/*(DN-.)); else files+=("$a"); fi
+            done
+            (( $#files )) || return 1
+            print -rN -- "${files[@]}" | xargs -0r grep -Z $re -HsiIn --color=always "${opts[@]}" -- | _grep-pretty ;;
+        er) grep -Z $re -HsiInr --color=always "${opts[@]}" -- "${operands[@]}" | _grep-pretty ;;
+        ep) grep -Z $re -HsiIn --color=always "${opts[@]}" -- "${operands[@]}" | _grep-pretty ;;
+        z)  zgrep $re -HsiIn --color=always "${opts[@]}" -- "${operands[@]}" | _grep-pretty ;;
+    esac
+}
+e()  { _e-grep e "$@" }
+er() { _e-grep er "$@" }
+ep() { _e-grep ep "$@" }
+z()  { _e-grep z "$@" }
 hs()   { (( $# )) || { print 'Usage: hs <history-search-pattern>'; return 1 }; fc -l 1 | grep -EHiIn --color=auto -- "$*" }
 fdir() { (( $# )) || { print 'Usage: fdir <directory-name-pattern>'; return 1 }; find . -type d -iname "*$1*" }
 ff()   { (( $# )) || { print 'Usage: ff <file-name-pattern>'; return 1 }; find . -type f -iname "*$1*" }
 _custom-register Search \
-    e    'Recursive case-insensitive grep with formatted file/line output.' \
+    e    'Case-insensitive grep of the files directly in each directory (default .), with formatted file/line output.' \
+    er   'Recursive case-insensitive grep with formatted file/line output.' \
     ep   'Search explicitly supplied files with formatted grep output.' \
     z    'Search compressed files with formatted zgrep output.' \
     hs   'Search shell history with a regular expression.' \
@@ -452,97 +721,172 @@ _custom-register Search \
 
 # === Git ======================================================================
 
+unalias gdc gdco 2>/dev/null  # older aliases would expand inside the function definitions below
+
 gg() { git grep -in --color=always "$@" | sed -e 's/:/ : /1' -e 's/:/ : /2' }
 _custom-register Git gg 'Search tracked Git content with formatted output.'
 _custom-alias Git \
-    gf   'git ls-files | rg'                        'Search tracked Git filenames with ripgrep.' \
-    gm   'git config pull.rebase false && git pull' 'Set pull to merge for this repo, then pull.' \
-    gr   'git config pull.rebase true && git pull'  'Set pull to rebase for this repo, then pull.' \
-    gdc  'git diff'                                 'Show the working-tree Git diff.' \
-    gdco 'git diff > gitdiff_to_commit'             'Write the working-tree diff to gitdiff_to_commit.' \
-    gs   'git status'                               'Show Git working-tree status.' \
-    ga   'git add .'                                'Stage all changes under the current directory.'
+    gf 'git ls-files | rg'                        'Search tracked Git filenames with ripgrep.' \
+    gm 'git config pull.rebase false && git pull' 'Set pull to merge for this repo, then pull.' \
+    gr 'git config pull.rebase true && git pull'  'Set pull to rebase for this repo, then pull.' \
+    gs 'git status'                               'Show Git working-tree status.' \
+    ga 'git add .'                                'Stage all changes under the current directory.'
 gc() { git commit -m "$*" }
 
-# origin's default branch: origin/HEAD, else the first of origin/main, origin/master, origin.
-_git-origin-ref() {
-    local ref
-    ref=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) && { print -r -- $ref; return }
-    for ref in origin/main origin/master origin; do
-        git rev-parse --verify --quiet $ref >/dev/null && { print -r -- $ref; return }
-    done
-    print -u2 'No origin remote-tracking reference found.'; return 1
+# gdc/gdo [git-diff-options]: a simplified diff of the working tree (gdo: against origin's default branch), colored and
+# paged on a terminal; gdco/gdoo [file] [git-diff-options] write it to ./git-diff-commit and ./git-diff-origin.
+# gla/glf/glo [-me] [git-log-options]: the graph history of all refs (glf with each commit's changed files; glo the
+# commits not yet in the upstream branch), from git log itself, colored and paged on a terminal; glao/glfo/gloo
+# [file] [-me] [git-log-options] write it to ./git-log-all, ./git-log-files and ./git-log-origin, which the vimrc colors
+# as git colors it in a terminal. -me is --author=<git user.name>. A writer's first argument names another file unless
+# it starts with -, and a first -- keeps the default (gdoo -- src/). All are git-helpers.py, a Python program in
+# ~/env-config/scripts that any shell can run with these names as its first word (git-helpers.py gdc); the docstring at
+# its top describes them all.
+_git-helpers() {
+    whence -p git-helpers.py >/dev/null ||
+        { print -u2 "$1: git-helpers.py not found on PATH (it is in ~/env-config/scripts)"; return 127 }
+    git-helpers.py "$@"
 }
-gdo() { local ref; ref=$(_git-origin-ref) || return; git diff $ref "$@" }
-
-# gdoo [outfile] [diff-args]: per-file headers become "diff <path>", hunks become "@ Hunk N @".
-gdoo() {
-    local out=./gitdiff_to_origin ref
-    if [[ $# -gt 0 && $1 != -- ]]; then out=$1; shift; elif [[ $1 == -- ]]; then shift; fi
-    ref=$(_git-origin-ref) || return
-    git diff $ref "$@" | awk '
-        /^diff --git / { if (files++) print ""; path = $3; sub(/^[abcw]\//, "", path); print "diff " path; hunk = 0; header = 1; next }
-        header && /^(index |new file mode |--- |\+\+\+ )/ { next }
-        /^@@ / { header = 0; print "@ Hunk " (++hunk) " @"; next }
-        { print }' > $out
+gdc()   { _git-helpers gdc "$@" }
+gdo()   { _git-helpers gdo "$@" }
+gdco()  { _git-helpers gdco "$@" }
+gdoo()  { _git-helpers gdoo "$@" }
+gla()   { _git-helpers gla "$@" }
+glf()   { _git-helpers glf "$@" }
+glo()   { _git-helpers glo "$@" }
+glao()  { _git-helpers glao "$@" }
+glfo()  { _git-helpers glfo "$@" }
+gloo()  { _git-helpers gloo "$@" }
+# git diff options for option prefixes, plain files otherwise (what gdc and gdco completed as aliases).
+_git-diff-completion() { if [[ $PREFIX == -* ]]; then local service=git-diff; _git; else _files; fi }
+compdef _git-diff-completion gdc gdco gdo gdoo
+# -me (until a --) and git log options for option prefixes, plain files otherwise.
+_gl-completion() {
+    [[ $PREFIX == -* ]] || { _files; return }
+    local ret=1 service=git-log; local -a me=('-me:show only your commits')
+    (( ${${words[1,CURRENT-1]}[(I)--]} )) || { _describe -t git-log-options 'git log option' me && ret=0 }
+    _git && ret=0
+    return ret
 }
-
-_glog_format='%C(red)%H%C(reset) - %C(green)(%ar)%C(reset) %C(white)%s%C(reset) %C(bold italic white)- %an%C(reset)%C(auto)%d%C(reset)'
-glog()  { git log --graph --decorate --format="format:$_glog_format" --all "$@" }
-glogf() { glog --name-only "$@" }
+compdef _gl-completion gla glf glo glao glfo gloo
+# The zsh helpers these replaced (glog and glogf became gla and glf): a shell reloading from an older zshrc drops them.
+unfunction _git-origin-ref glog glogf 2>/dev/null; unset _glog_format
 
 DEFAULT_CLONE_REPO=${DEFAULT_CLONE_REPO:-/nfs/site/disks/ttl.git.zsc10.001/ttlh78/hub-ttlh78-a0}
 clone() { git clone $DEFAULT_CLONE_REPO "$@" }
 
 _custom-register Git \
     gc    'Commit staged changes using the arguments as the message.' \
-    gdo   'Show a diff against the origin default branch.' \
-    gdoo  'Write a simplified diff against the origin default branch.' \
-    glog  'Show decorated graph history for all refs.' \
-    glogf 'Show graph history plus changed filenames.' \
+    gdc   'Show a simplified working-tree diff.' \
+    gdco  'Write a simplified working-tree diff to git-diff-commit.' \
+    gdo   'Show a simplified diff against the origin default branch.' \
+    gdoo  'Write a simplified diff against the origin default branch to git-diff-origin.' \
+    gla   'Show decorated graph history for all refs; -me shows only your commits.' \
+    glf   'Show graph history plus changed filenames; -me shows only your commits.' \
+    glo   'Show every commit that has not made it into the tracked upstream branch; -me shows only yours.' \
+    glao  'Write what gla shows to git-log-all (or a named file); -me keeps only your commits.' \
+    glfo  'Write what glf shows to git-log-files (or a named file); -me keeps only your commits.' \
+    gloo  'Write what glo shows to git-log-origin (or a named file); -me keeps only yours.' \
     clone 'Clone the configured default work repository.'
 
 # === Editors & Vim sessions ===================================================
 
+unalias v 2>/dev/null  # the older alias would expand inside the function definition below
+
+# v [-g|--glow] [vim args...]: terminal Vim. -g or --glow as the first argument reads Markdown through glow instead
+# (v -g README.md is glow README.md), in place of Vim's own -g (GVim, which g opens).
+v() {
+    [[ $1 == (-g|--glow) ]] || { command vim "$@"; return }
+    (( $+functions[glow] )) || { print -u2 'v: -g needs glow: pacman -S glow, then sz'; return 127 }
+    shift; glow "$@"
+}
+compdef v=vim
+_custom-register Editors v 'Open terminal Vim; -g or --glow first reads Markdown through glow.'
+
 _custom-alias Editors \
-    v      vim             'Open terminal Vim.' \
     g      gvim            'Open GVim.' \
     vv     'vim -O'        'Open files in side-by-side Vim splits.' \
     vs     'vim -o'        'Open files in stacked Vim splits.' \
     vimv   'vim ~/.vimrc'  'Edit ~/.vimrc in Vim.' \
     gvimv  'gvim ~/.vimrc' 'Edit ~/.vimrc in GVim.' \
-    sv     sudoedit        'Edit a privileged file through sudoedit.' \
-    ob-fix "sed -i \"s/'let \(g:this_[a-z]* = v:this_session'\)/'\1/\" ~/.vim/pack/plugins/start/obsession/plugin/obsession.vim" \
-                           'Patch Vim Obsession for the installed Vim version.'
+    sv     sudoedit        'Edit a privileged file through sudoedit.'
 
-# vl/gl [name | -- vim-args]: resume ~/obsessions/named/<name>.vim, or this directory's
-# ~/obsessions/by-path/<physical cwd>/Session.vim. No -S: Vim takes the session lock before sourcing.
-_session-load() {
+# _by-path root: REPLY=root/by-path/<physical cwd> ("/" is __root__), where vl sessions are kept per directory.
+_by-path() { REPLY=${${PWD:A}#/}; REPLY=$1/by-path/${REPLY:-__root__} }
+
+# vl/gl [name | path | -- vim-args]: resume $OBSESSION_ROOT/named/<name>.vim, a session file, or this directory's
+# $OBSESSION_ROOT/by-path/<physical cwd>/Session.vim, in terminal Vim (vl) or in GVim (gl). A name is a named session
+# (.vim optional); a word with a / in it, or a file here that no named session shares a name with, is a session file.
+# No -S: Vim takes the session lock before sourcing.
+_session-load() {  # vim|gvim [name | path | -- vim-args]
     local editor=$1 session; shift
     if (( $# )) && [[ $1 != -- ]]; then
-        session=${1:t}; shift
-        [[ $session == *.vim ]] || session+=.vim
-        session=$OBSESSION_ROOT/named/$session
+        session=$1; shift
+        if [[ $session != */* && ( -f $OBSESSION_ROOT/named/${session%.vim}.vim || ! -f $session ) ]]; then
+            session=$OBSESSION_ROOT/named/${session%.vim}.vim
+        elif [[ ! -f $session && $session != *.vim ]]; then
+            session+=.vim
+        fi
     else
         [[ $1 == -- ]] && shift
-        session=${${PWD:A}#/}
-        session=$OBSESSION_ROOT/by-path/${session:-__root__}/Session.vim
+        _by-path $OBSESSION_ROOT
+        session=$REPLY/Session.vim
     fi
-    [[ -f $session ]] || { print -u2 -l 'No saved session:' "  $session"; return 1 }
-    OBSESSION_LOAD_SESSION=$session command $editor "$@"
+    [[ -f $session ]] || { print -u2 "No saved session:\n\t$session"; return 1 }
+    OBSESSION_LOAD_SESSION=${session:a} command $editor "$@"
 }
 vl() { _session-load vim "$@" }
 gl() { _session-load gvim "$@" }
+# Tab after vl/gl: the named sessions (not once the word has a /), and session files (*.vim) by path.
 _session-complete() {
     if (( CURRENT == 2 )); then
+        local ret=1
         local -a sessions=($OBSESSION_ROOT/named/*.vim(N:t:r))
-        (( $#sessions )) && _describe 'named session' sessions
-    else
-        _files
+        [[ $PREFIX == */* ]] || { (( $#sessions )) && _describe -t named-sessions 'named session' sessions && ret=0 }
+        _files -g '*.vim(-.)' && ret=0
+        return ret
     fi
+    _files
 }
 compdef _session-complete vl gl
-_custom-register Editors vl 'Open a saved Vim session.' gl 'Open a saved GVim session.'
+
+# dirdiff dir-a dir-b: diff two directories with ZFDirDiff in terminal Vim, but without NERDTree, Obsession (no session
+# is tracked), or GitGutter; q in the diff tree quits Vim. The paths reach Vim through the environment, so quoting
+# cannot break them.
+dirdiff() {
+    (( $# == 2 )) || { print -u2 'usage: dirdiff <dir-a> <dir-b>'; return 2 }
+    local d
+    for d; do [[ -d $d ]] || { print -u2 "dirdiff: not a directory: $d"; return 1 }; done
+    OBSESSION_AUTO=0 ZFDIRDIFF_A=$1 ZFDIRDIFF_B=$2 command vim \
+        --cmd 'let g:loaded_nerd_tree = 1 | let g:loaded_obsession = 1 | let g:loaded_gitgutter = 1' \
+        -c 'call ZFDirDiff($ZFDIRDIFF_A, $ZFDIRDIFF_B)' \
+        -c 'autocmd TabClosed * if tabpagenr("$") == 1 && !exists("t:ZFDirDiff_taskData") | call timer_start(0, {-> execute("qa")}) | endif'
+}
+compdef _directories dirdiff
+
+# Obsession before upstream 5d63e5b inserts legacy `let` lines into Vim 9.2's vim9script sessions, which then fail to
+# restore (E1126). Fast-forward the plugin and repair sessions saved that way. The old ob-fix (an alias) patched those
+# lines out of the plugin with sed instead; that edit, the clone's only one, is undone first so that the pull can
+# fast-forward.
+unalias ob-fix 2>/dev/null
+ob-fix() {
+    local dir=~/.vim/pack/plugins/start/obsession f first
+    [[ -d $dir/.git ]] || { print -u2 "ob-fix: no Obsession clone in $dir"; return 1 }
+    [[ -z $(git -C $dir diff -U0 -- plugin/obsession.vim | grep '^[-+] ' | grep -v 'g:this_[a-z]* = v:this_session') ]] &&
+        git -C $dir checkout --quiet -- plugin/obsession.vim
+    git -C $dir pull --ff-only --quiet || return
+    for f in $OBSESSION_ROOT/**/*.vim(N.); do
+        read -r first < $f
+        [[ $first == vim9script ]] && grep -q '^let g:this_[a-z]* = v:this_session$' $f || continue
+        sed -i 's/^let \(g:this_[a-z]* = v:this_session\)$/\1/' $f && print -r -- "Repaired $f"
+    done
+}
+
+_custom-register Editors \
+    vl      "Load this directory's default session, a named session, or a session file, in terminal Vim." \
+    gl      "Load this directory's default session, a named session, or a session file, in GVim." \
+    dirdiff 'Diff two directories in Vim (ZFDirDiff), without NERDTree, Obsession, or GitGutter.' \
+    ob-fix  'Update Vim Obsession for Vim 9 sessions and repair sessions it broke.'
 
 # === Packages =================================================================
 
@@ -575,6 +919,8 @@ _update-body() {
         printf '\n--- Updating via Pacman ---\n\n'
         if sudo pacman -Syu --noconfirm; then
             (( $+commands[yay] )) && { printf '\n--- Updating via Yay ---\n\n'; yay --answerupgrade None --answerclean None --answerdiff None --noconfirm; rc=$? }
+            # Before env-save, so that its Vim plugin inventory has the new commits.
+            (( $+functions[plugin-update] )) && { printf '\n--- Updating Vim and tmux Plugins ---\n\n'; plugin-update }
             (( $+commands[env-save] )) && { printf '\n--- Saving Environment State ---\n\n'; env-save }
             # Lists services still running replaced files. -P skips the interactive pacdiff, -L leaves systemd to
             # pacman's own hooks, and -R restarts nothing: restarting the login manager would end the session.
@@ -768,7 +1114,7 @@ search() {
 }
 
 _custom-register Packages \
-    update       'Upgrade the system with pacman/yay without prompting, then run env-save and checkservices if available.' \
+    update       'Upgrade the system with pacman/yay without prompting, then Vim/tmux plugins, env-save and checkservices.' \
     update-check 'List pending pacman and AUR updates, Arch news and totals without installing anything.' \
     search       'Search official Arch repositories and the AUR when yay is available.'
 
@@ -812,6 +1158,79 @@ _custom-alias Tools \
     view          'feh --auto-zoom --image-bg black --scale-down'        'View images scaled to fit on a black background.' \
     mouse-battery 'solaar show 2>/dev/null | grep "Battery:" | tail -1' 'Show the mouse battery level reported by Solaar.'
 
+# noti [-f] <command> [args...] | noti [-f] -c|-- '<shell expression>': run it in the background with output in its own
+# log, $NOTI_LOG_DIR/by-path/<physical cwd>/noti.<name>.<time>[.N].log (so tn can find it from the same directory), then
+# email the result plus the log's tail to $NOTI_EMAIL; -f runs it here in the foreground instead. noti.py, a Python
+# program in ~/env-config/scripts that other shells can run alone, makes the log, its header and the email (through
+# mailx or mail); the docstring at its top describes them. This function keeps what only zsh can do. The job is this
+# same noti call, eval'd so that jobs lists it as typed (noti make -j8) and kill %N stops it; it finds the log and start
+# time noti.py _start printed in _noti_job_log. The command runs in a subshell of the job, so kill %N (TERM), a hang-up
+# or INT ends all of it and the email says which, with no stdin, so a read gets EOF instead of stopping the job. -f
+# evaluates it in this shell itself, so a cd stays. The command sees no positional parameters, as at the prompt, and
+# this function's locals all start with _noti_, so an expression sees the shell's own variables (noti -c 'make >$log'
+# writes your $log, not the noti log).
+noti() {
+    local _noti_usage="Usage:\tnoti [-f] <command> [args...]\n\tnoti [-f] -c '<shell expression>'\n\tnoti [-f] -- '<shell expression>'\nOptions:\n\t-f, --foreground\tRun here and wait instead of in the background."
+    local -i _noti_fg=0 _noti_rc
+    local _noti_job=$_noti_job_log _noti_job_log _noti_cmd _noti_name _noti_out _noti_signal _noti_dir=$PWD
+    [[ $1 == (-f|--foreground) ]] && { _noti_fg=1; shift }
+    (( $# )) || { print -u2 $_noti_usage; return 2 }
+    if [[ $1 == (-c|--) ]]; then
+        (( $# == 2 )) || { print -u2 $_noti_usage; return 2 }
+        _noti_cmd=$2 _noti_name=${${(z)2}[1]:t}
+        _noti_name=${_noti_name:-shell}
+    else
+        _noti_cmd=${(j: :)${(q)@}} _noti_name=${1:t}
+    fi
+    if [[ -n $_noti_job ]]; then
+        trap '_noti_signal=HUP' HUP; trap '_noti_signal=INT' INT; trap '_noti_signal=TERM' TERM
+        ( trap - HUP INT TERM; shift $#; eval -- "$_noti_cmd" ) </dev/null >>${_noti_job%%$'\n'*} 2>&1
+        _noti_rc=$?
+        NOTI_PROG=noti noti.py _end "$_noti_name" ${_noti_job%%$'\n'*} ${_noti_job#*$'\n'} $_noti_rc "$_noti_signal" </dev/null >>${_noti_job%%$'\n'*} 2>&1
+        return $_noti_rc
+    fi
+    whence -p noti.py >/dev/null || { print -u2 'noti: noti.py not found on PATH (it is in ~/env-config/scripts)'; return 127 }
+    if (( _noti_fg )); then
+        _noti_out=$(NOTI_PROG=noti noti.py _start --foreground "$_noti_name" "$_noti_cmd") || return
+        shift $#
+        eval -- "$_noti_cmd"
+        _noti_rc=$?
+        NOTI_PROG=noti noti.py _end "$_noti_name" - $_noti_out $_noti_rc '' "$_noti_cmd" "$_noti_dir"
+        return $_noti_rc
+    fi
+    _noti_out=$(NOTI_PROG=noti NOTI_LOG_DIR=$NOTI_LOG_DIR noti.py _start "$_noti_name" "$_noti_cmd") || return
+    _noti_job_log=$_noti_out
+    eval "noti ${(j: :)${(@q+)@}} &"
+    print -r -- "noti: $_noti_name running in the background; log: ${_noti_out%%$'\n'*}"
+}
+
+# tn [N | name] | tn -l: follow the log of a noti started in this directory (physical path, as vl finds sessions): the
+# newest one still running, else the newest; name looks only at that command's logs, and N takes the Nth newest, as
+# numbered by tn -l. tn stops when the job ends and prints its result; Ctrl+C stops only tn. It is noti.py --tail (tn -l
+# is noti.py --list), which other shells can run too.
+tn() {
+    whence -p noti.py >/dev/null || { print -u2 'tn: noti.py not found on PATH (it is in ~/env-config/scripts)'; return 127 }
+    if [[ $1 == (-l|--list) ]]; then NOTI_PROG=tn NOTI_LOG_DIR=$NOTI_LOG_DIR noti.py --list
+    else NOTI_PROG=tn NOTI_LOG_DIR=$NOTI_LOG_DIR noti.py --tail "$@"; fi
+}
+# The numbers with each run's status, start time and command, then the command names (noti.py _complete).
+_tn() {
+    local line; local -a logs names
+    for line in ${(f)"$(NOTI_LOG_DIR=$NOTI_LOG_DIR noti.py _complete 2>/dev/null)"}; do
+        case ${line%%$'\t'*} in
+            log)  logs+=("${line#*$'\t'}") ;;
+            name) names+=("${line#*$'\t'}") ;;
+        esac
+    done
+    _arguments '(1)'{-l,--list}"[list this directory's noti logs]" \
+        '(-l --list)1: :{_describe -V -t logs "noti log" logs; _describe -t names "command name" names}'
+}
+compdef _tn tn
+
+_custom-register Tools \
+    noti 'Run a command or shell expression in the background (-f here), then email its result (noti.py).' \
+    tn   'Follow the newest running noti log from this directory; tn -l lists them, tn N picks one (noti.py).'
+
 # tp: tmux sessions per project (tmux-project from ~/env-config/scripts; prefix g is the same picker).
 if (( $+commands[tmux-project] )); then
     _custom-alias Tools tp tmux-project 'Go to a project tmux session: pick (no argument) or name a session, directory or zoxide query.'
@@ -824,51 +1243,221 @@ fi
 
 # tmux-kill [server]: save the server's sessions (tmux-resurrect, when it has it loaded; the next server restores them),
 # then tmux -L <server> kill-server, which ends its sessions and closes every terminal attached to it; without an
-# argument, the server this shell is in (else the default one). Both steps run the server's own binary, so they still
-# work after an update has replaced the tmux that the server started from; the next terminal then starts the new one.
-_tmux-servers() {  # reply=(server pid ...): the running servers, whose sockets ss shows listening (stale ones are not)
-    local line
-    reply=()
-    for line in ${(f)"$(ss -xlpH 2>/dev/null)"}; do
-        [[ $line == (#b)*" "${TMUX_TMPDIR:-/tmp}/tmux-$UID/([^ /]##)" "*pid=(<->),* ]] && reply+=($match[1] $match[2])
-    done
-}
+# argument, the server this shell is in (else the default one). It is tmux-kill.py, a Python program in
+# ~/env-config/scripts beside tmux-project that any shell can run; tmux-kill.py --list lists the running servers, as Tab
+# offers them here.
 tmux-kill() {
-    local usage="Usage: tmux-kill [server]\nSave a tmux server's sessions (tmux-resurrect), then end it (tmux -L server kill-server) and close every terminal attached to it. Without a server, the one this shell is in, else default."
-    [[ $1 == (-h|--help) ]] && { print $usage; return 0 }
-    (( $# <= 1 )) && [[ $1 != -* ]] || { print -u2 $usage; return 2 }
-    local server=${1:-${${${TMUX%%,*}:t}:-default}} exe save bin
-    local -A pids
-    _tmux-servers; pids=($reply)
-    [[ -n $pids[$server] ]] || { print -u2 "tmux-kill: no tmux server named $server is running"; return 1 }
-    exe=/proc/$pids[$server]/exe
-    save=$($exe -L $server show -gqv @resurrect-save-script-path)
-    if [[ -x $save ]]; then
-        # The save script runs the tmux on PATH against $TMUX: point both at this server.
-        bin=$(mktemp -d) && ln -s $exe $bin/tmux &&
-            ( unset TMUX_PANE; TMUX=${TMUX_TMPDIR:-/tmp}/tmux-$UID/$server,$pids[$server],0 PATH=$bin:$PATH $save quiet ) ||
-            { [[ -n $bin ]] && rm -rf $bin; print -u2 "tmux-kill: could not save $server, so it was left running"; return 1 }
-        rm -rf $bin
-    fi
-    $exe -L $server kill-server
+    whence -p tmux-kill.py >/dev/null ||
+        { print -u2 'tmux-kill: tmux-kill.py not found on PATH (it is in ~/env-config/scripts)'; return 127 }
+    TMUX_KILL_PROG=tmux-kill tmux-kill.py "$@"
 }
 _tmux-kill() {
     (( CURRENT == 2 )) || return 1
-    local server; local -a servers; local -A pids
-    _tmux-servers; pids=($reply)
-    for server in ${(k)pids}; do
-        servers+=("${server//:/\\:}:sessions: ${(j:, :)${(f)"$(/proc/$pids[$server]/exe -L $server list-sessions -F '#{session_name}' 2>/dev/null)"}}")
+    local line; local -a servers
+    for line in ${(f)"$(tmux-kill.py --list 2>/dev/null)"}; do
+        servers+=("${${line%%$'\t'*}//:/\\:}:sessions: ${line##*$'\t'}")
     done
     _describe 'tmux server' servers
 }
-compdef _tmux-kill tmux-kill
+compdef _tmux-kill tmux-kill tmux-kill.py
+unfunction _tmux-servers 2>/dev/null   # tmux-kill.py replaced it
 _custom-register Tools tmux-kill 'Save a tmux server (tmux-resurrect), then end it and close its terminals; no argument: the server this shell is in.'
 
-tool-status() {
-    local tool
-    printf '%-10s %s\n' TOOL STATUS ---------- ------------------------------
-    for tool in atuin bat btop dust env-save eza fd fzf gh git kitten pacman rg tree uvx yay zoxide zsh; do
-        printf '%-10s %s\n' $tool ${commands[$tool]:-MISSING}
-    done
+# plugin-update [plugin...]: bring each plugin clone, Vim's in ~/.vim/pack/*/{start,opt} (vim:<name>) and tmux's in
+# ~/.tmux/plugins (tmux:<name>), to the newest commit of its repository's default branch (the one GitHub shows, where a
+# project publishes its newest code; its release tags are behind it), as work's tool-update vim-plugins does; a plugin
+# is named as listed or by its bare name. The default branch is asked of the remote every run, so a repository that
+# moves it (master to main) is followed. A clone on that branch is fast-forwarded; one detached at a commit or on
+# another branch whose commits are all on it is moved onto it, as a local branch tracking it. A clone with local edits
+# or commits of its own, or on a branch with no upstream (held there), is skipped and left as it is. The clones are
+# checked (and fetched) at once. An update logs the commit it replaced and how to go back to it in
+# ~/.cache/plugin-update.log (the last run only), and rebuilds a Vim plugin's help tags, which are also rebuilt when
+# missing. update runs it after pacman and yay.
+
+# _plugin-clones: reply=(vim:<name> dir tmux:<name> dir ...), the plugin clones in order of name.
+_plugin-clones() {
+    local d; local -A by
+    for d in ~/.vim/pack/*/(start|opt)/*/.git(N:h); do by[vim:${d:t}]=$d; done
+    for d in ~/.tmux/plugins/*/.git(N:h); do by[tmux:${d:t}]=$d; done
+    reply=(); for d in ${(ko)by}; do reply+=($d $by[$d]); done
 }
-_custom-register Tools tool-status 'Show installed paths or MISSING status for useful command-line tools.'
+
+# _plugin-head dir: REPLY=the commit (7 characters) checked out in the clone at dir, read from its .git files; empty when
+# they do not say.
+_plugin-head() {
+    local g=$1/.git ref line
+    REPLY=
+    if [[ -f $g ]]; then read -r ref < $g; g=${ref#gitdir: }; [[ $g == /* ]] || g=$1/$g; fi
+    { read -r ref < $g/HEAD } 2>/dev/null || return 1
+    if [[ $ref != 'ref: '* ]]; then REPLY=$ref
+    elif [[ -f $g/${ref#ref: } ]]; then read -r REPLY < $g/${ref#ref: }
+    elif [[ -r $g/packed-refs ]]; then
+        for line in ${(f)"$(<$g/packed-refs)"}; do [[ $line == *" ${ref#ref: }" ]] && { REPLY=${line%% *}; break }; done
+    fi
+    REPLY=${REPLY[1,7]}
+    [[ -n $REPLY ]]
+}
+
+# _plugin-check dir: ask the remote of the clone at dir for its default branch, fetch it, then print "head commit ref
+# action [count | why]": its commit and the one it would move to, that branch's ref (- when unknown), and up-to-date,
+# ff (its branch, which tracks that one, fast-forwards), onto (detached, or on another branch: it moves onto that one),
+# skip or fail, then the number of new commits, or why it is skipped or failed. Runs in a subshell: it changes directory.
+_plugin-check() {
+    local line branch upstream remote target action err
+    local -a sha lines found
+    builtin cd -q $1 2>/dev/null || { print -r -- "- - - fail cannot enter $1"; return }
+    sha=(${(f)"$(git rev-parse HEAD 2>/dev/null)"})
+    [[ $sha[1] =~ '^[0-9a-f]{40}$' ]] || { print -r -- '- - - fail not a git clone'; return }
+    for line in ${(f)"$(git for-each-ref --format='%(HEAD)|%(refname:short)|%(upstream:short)' refs/heads)"}; do
+        [[ $line == '*|'* ]] && { line=${line#*|}; branch=${line%%|*} upstream=${line#*|}; break }
+    done
+    [[ -z $branch || -n $upstream ]] || { print -r -- "$sha[1] - - skip its branch $branch tracks no upstream (held there)"; return }
+    remote=${${upstream%%/*}:-origin}
+    # git's own reason for a failure (fatal: or error:), else its last line.
+    if ! err=$(GIT_TERMINAL_PROMPT=0 git ls-remote --symref $remote HEAD 2>&1); then
+        lines=(${(f)err}) found=(${(M)lines:#(fatal|error): *})
+        print -r -- "$sha[1] - - fail could not reach $remote: ${found[1]:-$lines[-1]}"; return
+    fi
+    lines=(${(f)err}) found=(${(M)lines:#ref: refs/heads/*})
+    target=${${found[1]#ref: refs/heads/}%%[[:space:]]*}
+    [[ -n $target ]] || { print -r -- "$sha[1] - - fail $remote names no default branch"; return }
+    target=$remote/$target
+    if ! err=$(GIT_TERMINAL_PROMPT=0 git fetch --quiet $remote 2>&1); then
+        lines=(${(f)err}) found=(${(M)lines:#(fatal|error): *})
+        print -r -- "$sha[1] - $target fail could not fetch $remote: ${found[1]:-$lines[-1]}"; return
+    fi
+    sha=(${(f)"$(git rev-parse HEAD $target 2>/dev/null)"})
+    [[ $sha[2] =~ '^[0-9a-f]{40}$' ]] || { print -r -- "$sha[1] - $target fail $target is not a commit"; return }
+    [[ $sha[1] == $sha[2] ]] && { print -r -- "$sha[1] $sha[2] $target up-to-date"; return }
+    line="$sha[1] $sha[2] $target skip"
+    git diff --quiet HEAD -- 2>/dev/null   # its exit status, not its output: 1 when tracked files differ from HEAD
+    case $? in
+        0) ;;
+        1) print -r -- "$line local edits (git status lists them)"; return ;;
+        *) print -r -- "$sha[1] $sha[2] $target fail could not check it for local edits (git diff HEAD)"; return ;;
+    esac
+    [[ -z ${(M)${(f)"$(git ls-files -v)"}:#[a-zS] *} ]] ||
+        { print -r -- "$line files marked assume-unchanged or skip-worktree"; return }
+    if ! git merge-base --is-ancestor HEAD $target; then
+        if [[ -n $branch ]]; then print -r -- "$line its branch $branch has commits of its own, not on $target"
+        else print -r -- "$line detached at a commit that is not on $target"; fi
+        return
+    fi
+    if [[ -n $branch && $upstream == $target ]]; then
+        action=ff
+    else
+        action=onto
+        if [[ $branch != ${target#*/} ]] && git show-ref --verify --quiet refs/heads/${target#*/} &&
+           ! git merge-base --is-ancestor refs/heads/${target#*/} $target; then
+            print -r -- "$line its branch ${target#*/} has commits of its own, not on $target"; return
+        fi
+    fi
+    print -r -- "$sha[1] $sha[2] $target $action $(git rev-list --count HEAD..$target)"
+}
+
+# _plugin-move dir ref ff|onto: move the clone at dir to ref, as _plugin-check found it can: fast-forward its branch,
+# or (onto) check out ref's branch, made or moved there and tracking ref. Runs in a subshell.
+_plugin-move() {
+    builtin cd -q $1 || return
+    if [[ $3 == ff ]]; then git merge --ff-only --quiet $2; else git checkout --quiet -B ${2#*/} --track $2; fi
+}
+
+# _plugin-helptags dir: rebuild the help tags (doc/tags) of the Vim plugin at dir, as after it was cloned.
+_plugin-helptags() {
+    [[ -d $1/doc ]] || return 0
+    PLUGIN_DOC=$1/doc command vim -u NONE -i NONE -N -es -c 'execute "helptags" fnameescape($PLUGIN_DOC)' -c 'qa!' </dev/null
+}
+
+# _plugin-row name installed latest result: one row of plugin-update's table, its first column pw wide (the caller's).
+# On a terminal, a result ending in ... (still working) is drawn without a newline, so the row's next state replaces it;
+# elsewhere it is skipped.
+_plugin-row() {
+    local row
+    printf -v row "%-${pw:-12}s %-10s %-10s %s" "$@"
+    if [[ -t 1 ]]; then printf '\r%s\e[K' $row; [[ $4 == *... ]] || print
+    elif [[ $4 != *... ]]; then print -r -- $row
+    fi
+}
+
+plugin-update() {
+    local name dir line head commit ref action rest have latest state result note back
+    local log=${XDG_CACHE_HOME:-$HOME/.cache}/plugin-update.log
+    local -i pw=12
+    local -a reply names summary
+    local -A dirs check count
+    [[ $1 == (-h|--help) ]] && { print 'Usage: plugin-update [plugin...]   (vim:<name> or tmux:<name>, or a bare <name>)'; return 0 }
+    _plugin-clones; dirs=($reply)
+    (( $#dirs )) || { print 'plugin-update: no plugin clones in ~/.vim/pack or ~/.tmux/plugins'; return 0 }
+    if (( $# )); then
+        for name; do
+            if (( $+dirs[$name] )); then names+=($name)
+            elif [[ -n ${(M)${(k)dirs}:#*:$name} ]]; then names+=(${(M)${(k)dirs}:#*:$name})
+            else print -u2 "plugin-update: no plugin clone named $name (Tab lists them)"; return 2; fi
+        done
+        names=(${(u)names})
+    else
+        names=(${(ko)dirs})
+    fi
+    mkdir -p ${log:h} && : >| $log || { print -u2 "plugin-update: cannot write $log"; return 1 }
+    for name in $names; do (( $#name > pw )) && pw=$#name; done
+    _plugin-row PLUGIN INSTALLED LATEST RESULT
+    _plugin-row plugins - - "checking $#names clones..."
+    for line in ${(f)"$(for name in $names; do print -r -- "$name $(_plugin-check $dirs[$name] 2>/dev/null)" & done; wait)"}; do
+        check[${line%% *}]=${line#* }
+    done
+    for name in $names; do
+        dir=$dirs[$name] head= commit= ref= action= rest= note=
+        read -r head commit ref action rest <<< ${check[$name]-}
+        have=${${head:#-}[1,7]} latest=${${commit:#-}[1,7]}
+        print -rl -- '' "=== $name ===" "$dir: ${head:--} (following ${ref:--}: ${commit:--}) ${action:-no result} $rest" >> $log
+        case $action in
+            up-to-date) state='up to date' ;;
+            ff|onto)
+                _plugin-row $name ${have:--} ${latest:--} updating...
+                if ( _plugin-move $dir $ref $action ) >> $log 2>&1; then
+                    state=updated note="$rest commit${${rest:#1}:+s}"
+                    [[ $action == onto ]] && note+=", now on its branch ${ref#*/}"
+                    if [[ $action == ff ]]; then back="git reset --keep $head"; else back="git checkout --detach $head"; fi
+                    print -r -- "Updated from $head; to go back: cd $dir && $back" >> $log
+                else
+                    state=failed note="git could not move it to $ref (see the log)"
+                fi ;;
+            skip) state=skipped note=$rest ;;
+            *)    state=failed note=${rest:-its check did not finish} ;;
+        esac
+        if [[ $name == vim:* && -d $dir/doc && ( $state == updated || $state == 'up to date' && ! -e $dir/doc/tags ) ]]; then
+            if _plugin-helptags $dir >> $log 2>&1; then [[ $state == updated ]] || note='help tags rebuilt'
+            else note+="${note:+; }could not rebuild its help tags"; fi
+        fi
+        if [[ $state == (skipped|failed) ]]; then result="$state: $note"; else result=$state${note:+ ($note)}; fi
+        count[$state]=$(( ${count[$state]:-0} + 1 ))
+        _plugin-row $name ${have:--} ${latest:--} $result
+    done
+    for state in updated 'up to date' skipped failed; do
+        (( ${count[$state]:-0} )) && summary+=("$count[$state] $state")
+    done
+    print "\n${(j:, :)summary}"
+    (( ${count[failed]:-0} + ${count[skipped]:-0} )) && print "Details: $log"
+    (( ! ${count[failed]:-0} ))
+}
+_plugin-update() {
+    local -a reply names
+    _plugin-clones; names=(${${(M)reply:#(vim|tmux):*}//:/\\:})   # vim\:<name>: _arguments takes a bare colon as a separator
+    _arguments '(- *)'{-h,--help}'[show usage]' "*:plugin clone:(${names})"
+}
+compdef _plugin-update plugin-update
+_custom-register Tools plugin-update 'Update the Vim and tmux plugin clones (all, or the named ones) to the newest commit of their default branch.'
+
+tool-status() {
+    local tool d REPLY
+    local -i tw=10
+    local -a reply
+    _plugin-clones
+    for tool d in $reply; do (( $#tool > tw )) && tw=$#tool; done
+    printf "%-${tw}s %s\n" TOOL STATUS ${(l:tw::-:)} ------------------------------
+    for tool in atuin bat btop dust env-save eza fd fzf gh git glow kitten pacman rg tree uvx wl-copy xclip xdotool yay zoxide zsh; do
+        printf "%-${tw}s %s\n" $tool ${commands[$tool]:-MISSING}
+    done
+    for tool d in $reply; do _plugin-head $d; printf "%-${tw}s %s\n" $tool "${REPLY:-?} $d"; done
+}
+_custom-register Tools tool-status "Show installed paths or MISSING for useful command-line tools, and each plugin clone's commit."
