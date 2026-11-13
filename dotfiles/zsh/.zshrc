@@ -572,11 +572,13 @@ if (( $+commands[eza] )); then
     # palette, so directories and mount points are orange (256-color 208), and executables green, all without eza's
     # bold (mount points still underlined). Dates, lg's Git "modified" flag and SELinux users are sky blue (75).
     # Compressed files and sizes in GiB lose the palette's dark red for #f33636 (24-bit; a terminal without 24-bit
-    # color gets the nearest red). An EZA_COLORS from the environment wins; the one this file set is replaced at each
-    # load, so sz picks up a change here.
+    # color gets the nearest red). Temporary and backup files (*.bak, *~, FreeCAD's .FCBak) are grey (244) rather than
+    # eza's dim, which Kitty no longer draws (dim_opacity 1), so they still stand apart from other files.
+    # An EZA_COLORS from the environment wins; the one this file set is replaced at each load, so sz picks up a change
+    # here.
     [[ -z $EZA_COLORS || $EZA_COLORS == "$_eza_colors" ]] && {
         _eza_colors='di=38;5;208:mp=4;38;5;208:ex=32:da=38;5;75:gm=38;5;75:Su=38;5;75'
-        _eza_colors+=':co=38;2;243;54;54:ng=38;2;243;54;54:ug=38;2;243;54;54'
+        _eza_colors+=':co=38;2;243;54;54:ng=38;2;243;54;54:ug=38;2;243;54;54:tm=38;5;244'
         export EZA_COLORS=$_eza_colors
     }
     # With no path argument, eza lists the names it reads from stdin whenever stdin isn't a terminal (a `noti`
@@ -814,10 +816,35 @@ _custom-alias Editors \
 # _by-path root: REPLY=root/by-path/<physical cwd> ("/" is __root__), where vl sessions are kept per directory.
 _by-path() { REPLY=${${PWD:A}#/}; REPLY=$1/by-path/${REPLY:-__root__} }
 
+# _session-locked session: whether Vim would refuse the session for its lock (<session>.lock/owner: host, PID, launch
+# directory), judged as the vimrc's s:LockIsActive does: a live local PID, another host or no owner yet holds it; a
+# dead local PID's lock is stale, and the Vim that loads the session clears it. REPLY is then the message: where the
+# session is open (the command and PID and, for a Vim in tmux, its pane as session:window.pane), or, when the PID is
+# no longer Vim's (reused since that Vim died, as after a reboot) or there is no owner, how to remove the lock.
+_session-locked() {  # session
+    local lock=$1.lock
+    [[ -d $lock ]] || return 1
+    local -a owner
+    [[ -r $lock/owner ]] && owner=("${(@f)$(<$lock/owner)}")
+    local host=$owner[1] pid=$owner[2]
+    local has_owner=0; [[ -n $host && $pid == <-> ]] && has_owner=1
+    (( has_owner )) || { REPLY="Session lock has no owner yet; unless a Vim is opening it now, remove it:\n\trm -r $lock"; return 0 }
+    [[ $host == $HOST ]] || { REPLY="Session already open on $host (PID $pid):\n\t$1"; return 0 }
+    [[ -d /proc/$pid ]] || return 1
+    local cmd=$(</proc/$pid/comm)
+    [[ $cmd == (vim|gvim) ]] || { REPLY="Stale session lock (its PID $pid is now $cmd, not Vim); remove it:\n\trm -r $lock"; return 0 }
+    local -a env
+    [[ -r /proc/$pid/environ ]] && env=("${(@0)$(</proc/$pid/environ)}")
+    local pane=${${(M)env:#TMUX_PANE=*}#*=} socket=${${${(M)env:#TMUX=*}#*=}%%,*} where=
+    [[ -n $pane && -n $socket ]] && where=$(command tmux -S $socket display -p -t $pane '#S:#I.#P' 2>/dev/null)
+    REPLY="Session already open in $cmd (PID $pid${where:+, tmux $where}):\n\t$1"
+}
+
 # vl/gl [name | path | -- vim-args]: resume $OBSESSION_ROOT/named/<name>.vim, a session file, or this directory's
 # $OBSESSION_ROOT/by-path/<physical cwd>/Session.vim, in terminal Vim (vl) or in GVim (gl). A name is a named session
 # (.vim optional); a word with a / in it, or a file here that no named session shares a name with, is a session file.
-# No -S: Vim takes the session lock before sourcing.
+# No -S: Vim takes the session lock before sourcing. A session another Vim holds isn't opened (Vim would refuse it and
+# start empty); this says where that Vim is instead.
 _session-load() {  # vim|gvim [name | path | -- vim-args]
     local editor=$1 session; shift
     if (( $# )) && [[ $1 != -- ]]; then
@@ -833,6 +860,7 @@ _session-load() {  # vim|gvim [name | path | -- vim-args]
         session=$REPLY/Session.vim
     fi
     [[ -f $session ]] || { print -u2 "No saved session:\n\t$session"; return 1 }
+    _session-locked ${session:a} && { print -u2 $REPLY; return 1 }
     OBSESSION_LOAD_SESSION=${session:a} command $editor "$@"
 }
 vl() { _session-load vim "$@" }

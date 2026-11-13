@@ -431,7 +431,7 @@ endfunction
 " both.
 function! AirlineTabline() abort
   let l:line = substitute(airline#extensions#tabline#get(),
-        \ '%#\(airline_\w\{-}\)_to_\(airline_\w\+\)#.%#AirlineTabAltSep#.%#\2#',
+        \ '%#\(airline_\w\{-}\)_to_\(airline_\w\+\)#\(.\)%#AirlineTabAltSep#.%#\2#',
         \ '\=s:TabSep(submatch(1), submatch(2), submatch(3))', 'g')
   let l:line = substitute(l:line, '%#\w\+_bufnum#\d%#\w\+#\zs \ze%#\w\+_bufnum#', '', 'g')
   let l:parts = split(l:line, '%#AirlineTabAltSep#', 1)
@@ -546,11 +546,12 @@ endfunction
 " symlinked paths work; it makes at most three Git calls because each one is slow on NFS.
 let s:git_state_labels = {'ORIGIN': '✓ ORIGIN', 'CHANGED': '≠ CHANGED', 'NEW': '+ NEW',
       \ 'UNTRACKED': '? UNTRACKED', 'NOORIGIN': '! NO ORIGIN'}
+let s:origin_refs = 'refs/remotes/origin/HEAD refs/remotes/origin/main refs/remotes/origin/master'   " also GitGutter's
 let s:git_state_script = join([
       \ 'case "$1/" in */.git/*) echo NOGIT; exit;; esac',
       \ 'cd "$1" 2>/dev/null || { echo NOGIT; exit; }',
       \ 'export GIT_LITERAL_PATHSPECS=1',
-      \ 'origin=$(git for-each-ref --count=1 --format="%(refname)" refs/remotes/origin/HEAD refs/remotes/origin/main refs/remotes/origin/master 2>/dev/null) || { echo NOGIT; exit; }',
+      \ 'origin=$(git for-each-ref --count=1 --format="%(refname)" ' . s:origin_refs . ' 2>/dev/null) || { echo NOGIT; exit; }',
       \ '[ -n "$origin" ] || { echo NOORIGIN; exit; }',
       \ 'change=$(git diff --no-color --name-status "$origin" -- "$2" 2>/dev/null) || { echo NOGIT; exit; }',
       \ 'case $change in',
@@ -593,12 +594,41 @@ noremap <Leader>gta <Cmd>GitGutterToggle<CR>
 noremap <Leader>gt <Cmd>GitGutterBufferToggle<CR>
 noremap <Leader>gth <Cmd>GitGutterLineHighlightsToggle<CR>
 noremap <Leader>gd <Cmd>GitGutterDiffOrig<CR>
-noremap <Leader>gq <Cmd>GitGutterQuickFix<CR>
+noremap <Leader>gq <Cmd>let g:gitgutter_diff_base = <SID>OriginBase(getcwd()) <Bar> GitGutterQuickFix<CR>
 map <Leader>hd <Plug>(GitGutterPreviewHunk)
 map <Leader>hs <Plug>(GitGutterStageHunk)
 map <Leader>hu <Plug>(GitGutterUndoHunk)
 map <Leader>hf <Plug>(GitGutterNextHunk)
 map <Leader>ha <Plug>(GitGutterPrevHunk)
+
+" Each file diffs against its own repo's origin as section b finds it (origin/HEAD, else origin/main or origin/master),
+" and against the index (what is staged) in a repo with none, where origin/HEAD alone would fail with
+" g:gitgutter_diff_base (origin/HEAD) is invalid and mark every line added. GitGutter keeps one diff base for every
+" buffer (g:gitgutter_diff_base, used now only if this takeover stops matching it), so this replaces its
+" gitgutter#utility#get_diff_base() right after Vim loads that file (once, as GitGutter's plugin starts), keeping its
+" Fugitive rule (a past revision diffs against its parent). The replacement is made with execute(): a :function of that
+" name written inside another function would load GitGutter's file while this one is still being read, before the
+" autocommand exists. A buffer's base is found once, with one Git call, and again when the file is read again (:e).
+" .gq lists the hunks of the repo Vim's working directory is in, against that repo's base.
+function! s:OriginBase(dir) abort   " origin/HEAD, origin/main or origin/master, else '' (the index)
+  let l:ref = system('git -C ' . shellescape(a:dir) . ' for-each-ref --count=1 --format="%(refname)" ' . s:origin_refs)
+  return v:shell_error ? '' : substitute(trim(l:ref), '^refs/remotes/', '', '')
+endfunction
+function! GitGutterDiffBase(bufnr) abort
+  let l:revision = matchstr(resolve(expand('#' . a:bufnr . ':p')), '\v^fugitive:/.*/\zs\x{40,}\ze/')
+  if !empty(l:revision) | return l:revision . '^' | endif
+  if type(getbufvar(a:bufnr, 'gitgutter_origin_base', v:null)) != v:t_string
+    let l:dir = fnamemodify(resolve(expand('#' . a:bufnr . ':p')), ':h')
+    call setbufvar(a:bufnr, 'gitgutter_origin_base', s:OriginBase(l:dir))
+  endif
+  return getbufvar(a:bufnr, 'gitgutter_origin_base')
+endfunction
+augroup GitGutterDiffBase
+  autocmd!
+  autocmd SourcePost */autoload/gitgutter/utility.vim call execute(['function! gitgutter#utility#get_diff_base(bufnr)',
+        \ 'return GitGutterDiffBase(a:bufnr)', 'endfunction'])
+  autocmd BufReadPost * unlet! b:gitgutter_origin_base
+augroup END
 
 " Suspend GitGutter in buffers shown in diff mode; re-enable only what this suspended.
 function! SyncGitGutterWithDiff() abort

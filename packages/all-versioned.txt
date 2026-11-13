@@ -79,7 +79,7 @@ cifs-utils 7.9-1
 cjson 1.7.19-1
 clang 23.1.4-1
 clang-libs 23.1.4-1
-claude-code 2.1.322-1
+claude-code 2.1.323-1
 clinfo 3.0.25.02.14-1
 clucene 2.3.3.4-17
 cmake 4.5.0-1
@@ -200,7 +200,7 @@ go 2:1.27.4-1
 gobject-introspection-runtime 1.86.0-2
 gocryptfs 2.6.1-2
 google-chrome 157.0.8103.50-1
-gperftools 2.19.2-1
+gperftools 2.19.3-1
 gpgme 2.2.0-1
 gpgmepp 2.2.0-1
 gpm 1.20.7.r38.ge82d1a6-7
@@ -813,7 +813,7 @@ miniupnpc 2.3.3-3
 minizip 1:1.4-1
 mkinitcpio 42.2-1
 mkinitcpio-busybox 1.36.1-1
-mobile-broadband-provider-info 20251101-1
+mobile-broadband-provider-info 20261111-1
 modemmanager 1.24.2-2
 modemmanager-qt 6.31.0-1
 mpdecimal 4.0.1-3
@@ -1213,7 +1213,7 @@ systemd-sysvcompat 262.2-1
 systemd-ukify 262.2-1
 systemsettings 6.8.2-1
 taglib 2.3.2-1
-tailscale 1.104.6-1
+tailscale 1.104.7-1
 talloc 2.5.0-2
 tar 1.35-5
 tcl 8.6.16-1
