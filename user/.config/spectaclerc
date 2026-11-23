@@ -1,10 +1,13 @@
 [General]
 clipboardGroup=PostScreenshotCopyImage
-launchAction=UseLastUsedCapturemode
+launchAction=DoNotTakeScreenshot
+
+[GuiConfig]
+captureMode=0
 
 [ImageSave]
-lastImageSaveAsLocation=file:///home/Timmseh/Pictures/Screenshots/Sierra-Chart-Price-Mismatch.png
-lastImageSaveLocation=file:///home/Timmseh/Pictures/Screenshots/Screenshot_20261015_092127.png
+lastImageSaveAsLocation=file:///home/Timmseh/highlighting-issue.png
+lastImageSaveLocation=file:///home/Timmseh/Pictures/Screenshots/Screenshot_20261113_100413.png
 translatedScreenshotsFolder=Screenshots
 
 [VideoSave]

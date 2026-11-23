@@ -4,6 +4,9 @@ ShowBadges=false
 ShowInHistory=false
 ShowPopups=false
 
+[Applications][kitty]
+Seen=true
+
 [Applications][org.kde.spectacle]
 ShowBadges=false
 ShowInHistory=false

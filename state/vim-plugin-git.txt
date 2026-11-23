@@ -1,4 +1,4 @@
-.vim/pack/plugins/start/airline	https://github.com/vim-airline/vim-airline.git	master	8dc1bd0a116de527f6bc58c1d04386ba357c624f	clean
+.vim/pack/plugins/start/airline	https://github.com/vim-airline/vim-airline.git	master	00f4a8fca9eca8c5dbdf182dd698364c75a71f71	clean
 .vim/pack/plugins/start/airline-themes	https://github.com/vim-airline/vim-airline-themes.git	master	77aab8c6cf7179ddb8a05741da7e358a86b2c3ab	clean
 .vim/pack/plugins/start/ctrlp	https://github.com/ctrlpvim/ctrlp.vim.git	master	0065942ef13ce28293e2b26cb622d035da050b44	clean
 .vim/pack/plugins/start/fugitive	https://github.com/tpope/vim-fugitive.git	master	3b753cf8c6a4dcde6edee8827d464ba9b8c4a6f0	clean
