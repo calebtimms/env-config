@@ -1,5 +1,6 @@
 Session.vim
-gitdiff*
+git-diff*
+git-log*
 
 # Editor junk
 *.swp
